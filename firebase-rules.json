@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "ranking": {
+      "$level": {
+        ".read": true,
+        ".validate": "$level === 'facil' || $level === 'medio' || $level === 'dificil' || $level === 'mixto'",
+        "$id": {
+          ".write": "!data.exists() && newData.exists()",
+          ".validate": "newData.hasChildren(['name','pts','hits','total','limit','t'])",
+          "name":  { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "pts":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
+          "hits":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10" },
+          "total": { ".validate": "newData.isNumber() && newData.val() == 10" },
+          "limit": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 30" },
+          "t":     { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

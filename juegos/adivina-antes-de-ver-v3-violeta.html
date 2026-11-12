@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adiviná antes de ver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Estética de programa de preguntas: escenario violeta, tarjetas blancas, amarillo para la acción principal.
+     Verde y rojo se reservan para acierto y error. */
+  --stage:#2A1B5E; --stage-2:#4B2C9B; --white:#fff; --ink:#2A1B5E; --ink-2:#5B5280; --line:#E4DFF5; --badge:#5B3CC4;
+  --yellow:#FFC93C; --yellow-d:#E0A800; --ok:#0E8F5B; --ok-bg:#DDF5EA; --bad:#D62A52; --bad-bg:#FFE0E7;
+  --display:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',system-ui,sans-serif;
+  --body:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--stage);background-image:radial-gradient(ellipse 80% 60% at 15% -10%,var(--stage-2),transparent 60%),radial-gradient(ellipse 70% 50% at 100% 110%,#7A2A8C88,transparent 60%);background-attachment:fixed;color:#fff;font-family:var(--body);font-size:18px;font-weight:500;line-height:1.4}
+#app{min-height:100%;display:flex;flex-direction:column}
+button{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--yellow);outline-offset:3px}
+
+.top{display:flex;align-items:center;gap:clamp(12px,2vw,28px);padding:14px clamp(16px,3vw,40px);flex-wrap:wrap}
+.brand{font-family:var(--display);font-size:28px;line-height:1;color:var(--yellow);letter-spacing:.01em}
+.brand small{display:block;font-family:var(--body);font-weight:700;font-size:14px;color:#CFC6F2;margin-top:4px;letter-spacing:0}
+.progress{flex:1;display:flex;gap:8px;justify-content:center;min-width:140px}
+.seg{width:clamp(22px,4vw,54px);height:14px;border-radius:7px;background:#ffffff26;border:2px solid transparent}
+.seg.cur{background:transparent;border-color:var(--yellow)}
+.seg.ok{background:#35D391}
+.seg.no{background:#FF6B88}
+.hud{display:flex;align-items:center;gap:14px;margin-left:auto}
+.pts{font-family:var(--display);font-size:22px;white-space:nowrap;min-width:90px;text-align:right}
+.pts b{font-size:36px;color:var(--yellow);font-weight:400}
+.iconbtn{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;border:0;background:#ffffff1f;cursor:pointer;color:#fff}
+.iconbtn:hover{background:#ffffff33}
+.iconbtn svg{width:26px;height:26px}
+
+main{flex:1;width:min(1200px,100%);margin:0 auto;padding:6px clamp(16px,3vw,40px) 34px;display:flex;flex-direction:column;gap:clamp(14px,2vw,22px)}
+
+.qcard{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;background:var(--white);color:var(--ink);border-radius:24px;padding:clamp(16px,2.4vw,28px) clamp(18px,3vw,36px);box-shadow:0 8px 0 #0000004d}
+.q{font-family:var(--display);font-weight:400;font-size:clamp(26px,3.5vw,46px);line-height:1.08;margin:0;text-wrap:balance}
+.qn{display:block;font-family:var(--body);font-weight:800;font-size:15px;color:var(--ink-2);margin-bottom:6px}
+.ringw{position:relative;width:92px;height:92px;flex:none}
+.ringw svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ringw .bg{stroke:var(--line)} .ringw .fg{stroke:var(--badge);transition:stroke .2s}
+.ringw .num{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:38px;color:var(--ink)}
+.ringw.hot .fg{stroke:var(--bad)} .ringw.hot .num{color:var(--bad)}
+.ringw.hot:not(.done){animation:pulse .5s ease-in-out infinite alternate}
+.ringw.done .fg{stroke:var(--ink-2)}
+@keyframes pulse{to{transform:scale(1.1)}}
+
+.play{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(14px,2.2vw,30px);align-items:start}
+.opts{display:flex;flex-direction:column;gap:14px}
+.opts-cap{margin:0 0 2px;font-weight:800;color:#DAD3F7;font-size:18px}
+.opt{display:grid;grid-template-columns:52px 1fr auto auto;gap:14px;align-items:center;text-align:left;background:var(--white);color:var(--ink);border:0;border-radius:18px;padding:12px 18px 12px 12px;box-shadow:0 6px 0 #0000004d;cursor:pointer;font-family:var(--display);font-size:clamp(22px,2.6vw,32px);line-height:1.1;transition:transform .1s,box-shadow .1s,background .2s}
+.opt:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 9px 0 #0000004d}
+.opt:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #0000004d}
+.opt:disabled{cursor:default}
+.ltr{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--badge);color:#fff;font-size:28px}
+.tag{font-family:var(--body);font-weight:800;font-size:14px;color:var(--ink);background:var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap}
+.mark svg{width:34px;height:34px;display:block}
+.opt.ok{background:var(--ok-bg);color:var(--ok);box-shadow:0 0 0 4px var(--ok),0 6px 0 #0000004d}
+.opt.ok .ltr{background:var(--ok)}
+.opt.no{background:var(--bad-bg);color:var(--bad);box-shadow:0 0 0 4px var(--bad),0 6px 0 #0000004d}
+.opt.no .ltr{background:var(--bad)}
+.opt.dim{opacity:.55}
+
+.evi{position:relative;background:var(--white);color:var(--ink);border-radius:24px;box-shadow:0 8px 0 #0000004d;overflow:hidden;min-height:340px}
+.evi h2{margin:0;padding:16px 22px 0;font-family:var(--body);font-weight:800;font-size:16px;color:var(--ink-2)}
+.evi svg.ch{display:block;width:100%;height:auto}
+.cover{position:absolute;inset:0;z-index:5;pointer-events:none}
+.half{position:absolute;top:0;bottom:0;width:50.5%;background:repeating-linear-gradient(90deg,#5B2BB0 0 22px,#44208C 22px 44px);transition:transform .95s cubic-bezier(.75,0,.25,1)}
+.half.l{left:0;box-shadow:inset -10px 0 14px -8px #0006}
+.half.r{right:0;box-shadow:inset 10px 0 14px -8px #0006}
+.cmsg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:20px;color:#fff;transition:opacity .35s}
+.cmsg svg{width:60px;height:60px;color:var(--yellow)}
+.cmsg b{font-family:var(--display);font-weight:400;font-size:clamp(30px,3.4vw,44px);line-height:1;color:var(--yellow)}
+.cmsg span{font-weight:700;font-size:clamp(16px,1.7vw,19px);max-width:24ch}
+.evi.open .half.l{transform:translateX(-102%)}
+.evi.open .half.r{transform:translateX(102%)}
+.evi.open .cmsg{opacity:0}
+.evi.open .cover{visibility:hidden;transition:visibility 0s 1s}
+.evi.snap .half,.evi.snap .cmsg,.evi.snap .cover{transition:none}
+.evi.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.t{fill:var(--ink)} .t2{fill:var(--ink-2)}
+.gl{stroke:var(--line);stroke-width:1.5}
+.ax{stroke:var(--ink);stroke-width:2}
+
+.result{display:grid;grid-template-columns:1.05fr 1.5fr auto;gap:clamp(12px,2vw,28px);align-items:center;background:var(--ok);color:#fff;border-radius:24px;padding:clamp(16px,2vw,24px) clamp(18px,2.6vw,32px);box-shadow:0 8px 0 #0000004d}
+.result.no{background:var(--bad)}
+.verdict{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:400;font-size:clamp(26px,3vw,38px);line-height:1.05;margin:0}
+.verdict svg{width:40px;height:40px;flex:none}
+.answer{margin:6px 0 0;font-size:clamp(16px,1.8vw,20px);font-weight:700}
+.bonus{display:inline-block;margin-top:6px;background:#ffffff33;border-radius:999px;padding:3px 12px;font-weight:800;font-size:16px}
+.note{margin:0;font-size:clamp(16px,1.7vw,19px);line-height:1.5;max-width:60ch}
+.btn{display:flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:16px;padding:16px 28px;font-family:var(--display);font-weight:400;font-size:clamp(22px,2.4vw,30px);color:var(--ink);background:var(--yellow);cursor:pointer;line-height:1;box-shadow:0 6px 0 var(--yellow-d);transition:transform .1s,box-shadow .1s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 var(--yellow-d)}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--yellow-d)}
+.btn.ghost{background:#ffffff1f;color:#fff;box-shadow:0 6px 0 #00000040}
+.btn.big{font-size:clamp(28px,3.4vw,44px);padding:clamp(18px,2.4vw,26px) clamp(30px,4vw,54px)}
+
+.hero{display:grid;grid-template-columns:1.25fr 1fr;gap:clamp(20px,4vw,56px);align-items:center}
+.hero h1{font-family:var(--display);font-weight:400;font-size:clamp(52px,9.5vw,124px);line-height:.92;margin:0 0 16px;color:var(--yellow);text-shadow:0 6px 0 #0000004d;text-wrap:balance}
+.lede{font-size:clamp(18px,2vw,23px);max-width:44ch;margin:0;color:#E9E4FF}
+.stagebox{position:relative;aspect-ratio:4/3;border-radius:24px;overflow:hidden;box-shadow:0 8px 0 #0000004d;background:var(--white)}
+.stagebox .half{animation:peek 3.2s ease-in-out infinite alternate}
+.stagebox .half.r{animation-name:peek2}
+@keyframes peek{from{transform:none}to{transform:translateX(-30%)}}
+@keyframes peek2{from{transform:none}to{transform:translateX(30%)}}
+.stagebox .cmsg{opacity:1}
+.stagebox .bars{position:absolute;left:14%;right:14%;bottom:14%;height:55%;display:flex;align-items:flex-end;gap:7%}
+.stagebox .bars i{flex:1;background:#A99BDB;border-radius:6px 6px 0 0}
+.stagebox .bars i:nth-child(1){height:30%}.stagebox .bars i:nth-child(2){height:48%}.stagebox .bars i:nth-child(3){height:38%}.stagebox .bars i:nth-child(4){height:100%;background:#6D3BEA}.stagebox .bars i:nth-child(5){height:62%}
+.set{display:flex;gap:clamp(14px,3vw,40px);flex-wrap:wrap;align-items:flex-end}
+.set h3{margin:0 0 8px;font-family:var(--body);font-weight:800;font-size:17px;color:#DAD3F7}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:0;border-radius:14px;padding:10px 18px;min-height:48px;font-family:var(--display);font-size:22px;background:#ffffff1f;color:#fff;cursor:pointer}
+.chip:hover{background:#ffffff33}
+.chip[aria-pressed=true]{background:var(--white);color:var(--ink);box-shadow:0 0 0 3px var(--yellow)}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,2vw,24px);margin:0;padding:0;list-style:none}
+.how li{background:#ffffff14;border-radius:16px;padding:14px 18px;font-size:18px}
+.how b{color:var(--yellow);font-family:var(--display);font-weight:400;font-size:20px;margin-right:6px}
+.src{font-size:14px;color:#BDB3E8;margin:0}
+
+.final{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap}
+.final .n{font-family:var(--display);font-size:clamp(72px,14vw,170px);line-height:.9;color:var(--yellow);text-shadow:0 6px 0 #0000004d}
+.final .tt{font-family:var(--display);font-size:clamp(26px,3.2vw,42px);line-height:1.1;max-width:20ch}
+.final .pp{font-weight:800;font-size:20px;color:#DAD3F7;width:100%}
+.recap{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.recap li{display:grid;grid-template-columns:36px 1fr auto;gap:14px;align-items:center;background:var(--white);color:var(--ink);border-radius:14px;padding:12px 18px}
+.recap .k{font-family:var(--display);font-size:22px;color:var(--badge)}
+.recap .v{display:flex;align-items:center;gap:8px;font-weight:800;white-space:nowrap}
+.recap .v svg{width:24px;height:24px}
+.recap .ok{color:var(--ok)} .recap .no{color:var(--bad)}
+.row-actions{display:flex;gap:16px;flex-wrap:wrap}
+
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.confetti i{position:absolute;top:-20px;width:11px;height:17px;border-radius:2px;animation:fall var(--d) cubic-bezier(.3,.6,.5,1) forwards}
+@keyframes fall{to{transform:translate(var(--x),105vh) rotate(var(--r));opacity:.9}}
+
+@media (max-width:860px){
+  .play,.hero{grid-template-columns:1fr}
+  .result{grid-template-columns:1fr}
+  .how{grid-template-columns:1fr}
+  .recap li{grid-template-columns:30px 1fr}
+  .recap .v{grid-column:2}
+  .progress{order:3;flex-basis:100%}
+  .opt{grid-template-columns:48px 1fr auto}
+  .opt .tag{display:none}
+  .ringw{width:72px;height:72px}.ringw .num{font-size:30px}
+}
+@media (prefers-reduced-motion:reduce){
+  .half,.cmsg,.btn,.opt{transition:none!important}
+  .ringw.hot:not(.done),.evi.shake,.stagebox .half{animation:none!important}
+  .confetti{display:none}
+}
+.seg{width:clamp(14px,2.4vw,34px)!important;height:12px!important}
+.hero h1{font-size:clamp(46px,7.5vw,100px)}
+.field{display:flex;flex-direction:column;gap:8px;min-width:min(100%,320px);flex:1}
+.field label,.set h3{font-family:var(--body);font-weight:800;font-size:17px;color:#DAD3F7;margin:0}
+.field input{font:inherit;font-family:var(--display);font-size:28px;line-height:1.1;padding:12px 18px;border-radius:16px;border:0;background:var(--white);color:var(--ink);box-shadow:0 6px 0 #0000004d;width:100%}
+.field input::placeholder{color:#8A82B3}
+.err{margin:0;color:#FFB3C3;font-weight:800;min-height:1.3em;font-size:16px}
+.lvls{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.lvl{display:flex;flex-direction:column;gap:6px;text-align:left;border:0;border-radius:18px;padding:16px 18px;background:#ffffff1a;cursor:pointer;color:#fff;min-height:132px}
+.lvl:hover{background:#ffffff2e}
+.lvl b{font-family:var(--display);font-weight:400;font-size:28px;line-height:1}
+.lvl span{font-size:16px;line-height:1.3;color:#E3DDFA}
+.lvl em{margin-top:auto;font-style:normal;font-weight:800;font-size:15px;color:var(--yellow)}
+.lvl[aria-pressed=true]{background:var(--white);color:var(--ink);box-shadow:0 0 0 4px var(--yellow),0 6px 0 #0000004d}
+.lvl[aria-pressed=true] span{color:var(--ink-2)} .lvl[aria-pressed=true] em{color:var(--badge)}
+.formrow{display:flex;gap:clamp(14px,3vw,36px);flex-wrap:wrap;align-items:flex-end}
+.btn svg{width:30px;height:30px}
+.qn b{color:var(--badge)}
+.tbl{width:100%;border-collapse:separate;border-spacing:0 10px;font-size:20px}
+.tbl th{font-weight:800;font-size:15px;color:#DAD3F7;text-align:left;padding:0 16px}
+.tbl td{background:var(--white);color:var(--ink);padding:12px 16px;font-weight:800}
+.tbl td:first-child{border-radius:14px 0 0 14px;width:70px}.tbl td:last-child{border-radius:0 14px 14px 0}
+.tbl .nm{font-family:var(--display);font-weight:400;font-size:26px;word-break:break-word}
+.tbl .num{font-family:var(--display);font-weight:400;font-size:26px;color:var(--badge)}
+.tbl tr.me td{background:#FFF3C4;box-shadow:inset 0 3px 0 var(--yellow),inset 0 -3px 0 var(--yellow)}
+.pos{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--line);font-family:var(--display);font-size:24px;color:var(--ink)}
+.pos.p1{background:var(--yellow)}.pos.p2{background:#D5D9E8}.pos.p3{background:#F0B98A}
+.empty{background:#ffffff14;border-radius:18px;padding:28px;font-size:20px;text-align:center}
+.rknote{font-size:15px;color:#BDB3E8;margin:0}
+.rkpos{font-weight:800;font-size:22px;color:var(--yellow);width:100%}
+.btn.danger{background:#ffffff1f;color:#fff;box-shadow:0 6px 0 #00000040;font-size:20px}
+.btn.danger.arm{background:var(--bad);box-shadow:0 6px 0 #8F1B38}
+@media (max-width:860px){
+  .lvls{grid-template-columns:1fr 1fr}
+  .hide-s{display:none}
+  .tbl .nm,.tbl .num{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">Adiviná antes de ver<small>Natalidad en Argentina, 2000–2024</small></div>
+    <div class="progress" id="progress" aria-label="Progreso del juego"></div>
+    <div class="hud"><div class="pts" id="score" aria-live="polite"></div>
+      <button class="iconbtn" id="sndBtn" data-action="sound" title="Sonido (tecla M)"></button></div>
+  </header>
+  <main id="stage"></main>
+</div>
+
+<script>
+const DATA = {"years": [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024], "s": {"argentina": [19.0, 18.2, 18.3, 18.4, 19.3, 18.5, 17.9, 17.8, 18.8, 18.6, 18.7, 18.5, 17.9, 17.9, 18.2, 17.9, 16.7, 16.0, 15.4, 13.9, 11.8, 11.6, 10.7, 9.9, 8.9], "ciudad_autonoma_de_buenos_aires": [14.3, 13.9, 13.6, 14.2, 14.9, 14.5, 14.6, 14.1, 15.1, 14.6, 14.9, 14.8, 14.2, 14.3, 14.3, 13.7, 13.1, 11.7, 11.6, 11.1, 9.1, 8.5, 8.0, 7.8, 6.9], "buenos_aires": [17.5, 16.9, 17.0, 17.3, 18.5, 17.9, 17.7, 17.7, 18.6, 18.4, 18.9, 18.8, 18.1, 17.8, 17.9, 17.3, 16.2, 15.4, 14.6, 13.1, 10.9, 10.7, 9.7, 9.0, 8.4], "catamarca": [25.8, 24.9, 24.4, 22.5, 20.6, 19.7, 18.3, 18.3, 18.6, 17.4, 16.9, 16.0, 15.0, 16.9, 17.4, 17.2, 16.7, 15.8, 16.4, 13.9, 11.9, 11.4, 11.3, 10.0, 8.8], "cordoba": [17.2, 15.9, 16.6, 17.5, 17.8, 17.1, 16.5, 16.3, 17.4, 17.4, 17.2, 16.9, 16.5, 16.0, 16.8, 16.4, 15.7, 15.0, 14.5, 13.7, 11.8, 11.6, 10.8, 9.8, 8.6], "corrientes": [22.7, 21.9, 23.3, 22.2, 22.7, 20.2, 18.7, 18.9, 19.7, 19.9, 19.8, 19.9, 18.6, 19.0, 19.8, 19.3, 18.5, 18.3, 18.0, 16.3, 14.8, 13.9, 12.6, 12.4, 10.5], "chaco": [25.8, 22.2, 24.9, 20.9, 25.1, 22.6, 19.6, 18.4, 20.8, 20.4, 21.2, 22.6, 20.2, 19.9, 20.2, 22.7, 19.1, 19.8, 21.0, 18.6, 15.3, 15.4, 14.7, 13.5, 11.9], "chubut": [19.4, 18.4, 17.1, 18.7, 19.3, 19.2, 20.0, 20.2, 21.4, 21.3, 21.2, 20.7, 20.2, 18.5, 17.8, 17.4, 16.6, 15.3, 14.3, 12.9, 11.3, 10.2, 9.6, 8.4, 8.4], "entre_rios": [21.3, 20.5, 19.5, 19.8, 19.5, 19.0, 17.2, 16.9, 17.2, 17.5, 17.4, 17.2, 16.7, 17.3, 17.8, 17.8, 16.6, 16.3, 15.6, 14.0, 12.3, 11.7, 10.7, 9.9, 8.6], "formosa": [25.7, 22.4, 25.1, 25.0, 26.5, 23.5, 21.4, 21.1, 22.6, 21.9, 21.1, 21.6, 21.0, 21.0, 21.8, 21.3, 19.4, 19.6, 19.8, 17.1, 15.2, 14.5, 13.8, 13.3, 10.7], "jujuy": [22.6, 23.1, 22.1, 20.3, 21.3, 19.9, 18.4, 18.6, 19.1, 19.2, 19.2, 19.6, 18.0, 18.5, 19.5, 18.2, 16.8, 15.8, 15.7, 13.6, 11.9, 10.8, 9.9, 9.3, 8.0], "la_pampa": [18.1, 17.2, 16.7, 18.3, 17.4, 16.9, 16.5, 16.2, 16.5, 16.3, 16.2, 15.6, 15.4, 16.8, 16.5, 15.1, 15.1, 14.3, 13.5, 12.1, 10.4, 9.9, 9.6, 8.8, 8.1], "la_rioja": [22.6, 20.5, 21.4, 21.2, 21.1, 20.8, 19.0, 18.4, 19.0, 17.9, 17.2, 17.4, 17.0, 17.5, 17.3, 17.1, 16.6, 15.6, 14.8, 13.7, 11.6, 11.6, 10.9, 10.2, 8.7], "mendoza": [19.2, 19.1, 16.9, 17.5, 18.4, 18.8, 19.0, 19.3, 20.2, 19.7, 19.3, 19.2, 18.4, 18.7, 19.4, 18.8, 17.5, 16.3, 15.4, 13.9, 11.8, 11.4, 10.5, 9.8, 9.1], "misiones": [25.8, 24.2, 22.9, 24.1, 26.4, 23.0, 19.9, 20.4, 23.1, 23.7, 22.2, 19.3, 22.3, 22.0, 23.4, 22.8, 21.0, 21.1, 20.2, 18.4, 16.8, 16.1, 15.2, 14.5, 12.3], "neuquen": [17.9, 16.8, 16.1, 19.4, 19.8, 20.0, 20.5, 20.5, 21.0, 20.9, 21.6, 19.6, 19.1, 18.7, 19.5, 19.1, 17.9, 16.3, 15.6, 14.4, 12.3, 11.6, 11.0, 10.0, 9.7], "rio_negro": [18.9, 17.8, 17.3, 18.6, 18.3, 18.7, 18.6, 18.9, 19.9, 19.6, 20.0, 19.8, 19.4, 17.9, 17.9, 18.2, 16.8, 16.0, 14.6, 13.3, 11.6, 10.6, 10.5, 9.5, 8.6], "salta": [24.0, 24.2, 24.7, 22.0, 23.9, 22.5, 21.0, 20.6, 21.4, 21.0, 21.9, 21.7, 20.2, 21.1, 21.6, 21.3, 19.4, 19.7, 18.2, 16.3, 12.7, 14.1, 12.8, 11.5, 9.7], "san_juan": [22.7, 23.7, 22.3, 22.2, 22.5, 21.4, 20.7, 20.8, 20.7, 20.6, 19.8, 19.9, 19.6, 20.6, 21.3, 20.5, 18.8, 18.1, 17.7, 16.2, 14.0, 14.1, 13.1, 12.2, 10.3], "san_luis": [22.3, 22.3, 22.0, 21.7, 21.9, 19.9, 20.2, 19.3, 19.3, 18.2, 17.4, 16.7, 16.0, 16.7, 16.9, 17.0, 15.5, 14.8, 14.2, 13.2, 11.8, 11.7, 10.7, 9.4, 8.3], "santa_cruz": [19.6, 19.8, 19.2, 21.9, 22.4, 22.9, 23.5, 23.8, 25.0, 25.2, 26.0, 25.0, 24.0, 19.7, 19.8, 19.8, 18.6, 17.0, 14.7, 13.3, 11.3, 9.4, 9.5, 8.0, 8.1], "santa_fe": [16.9, 16.2, 16.7, 17.3, 17.6, 16.3, 15.8, 15.7, 16.9, 16.5, 16.2, 16.4, 16.3, 16.9, 17.2, 16.9, 16.3, 15.4, 14.8, 13.4, 11.2, 12.2, 11.5, 10.4, 9.2], "santiago_del_estero": [21.6, 21.1, 22.1, 17.8, 19.7, 21.0, 20.0, 19.4, 20.5, 21.9, 19.9, 20.2, 17.9, 18.8, 19.8, 20.5, 18.7, 18.8, 18.9, 17.5, 14.0, 13.8, 11.7, 11.8, 10.8], "tucuman": [22.6, 21.1, 22.6, 21.8, 21.0, 19.9, 18.5, 19.7, 19.9, 19.1, 20.1, 19.5, 18.7, 18.9, 19.3, 19.0, 17.5, 16.7, 16.9, 15.0, 12.8, 12.8, 11.9, 10.6, 9.4], "tierra_del_fuego": [19.9, 17.9, 17.2, 20.8, 19.5, 20.7, 20.1, 20.8, 20.8, 20.2, 18.8, 18.6, 19.2, 19.8, 20.5, 19.9, 18.1, 16.9, 16.3, 14.2, 10.9, 9.9, 8.5, 7.7, 6.9]}, "names": {"argentina": "Argentina", "ciudad_autonoma_de_buenos_aires": "Ciudad de Buenos Aires", "buenos_aires": "Buenos Aires", "catamarca": "Catamarca", "cordoba": "Córdoba", "corrientes": "Corrientes", "chaco": "Chaco", "chubut": "Chubut", "entre_rios": "Entre Ríos", "formosa": "Formosa", "jujuy": "Jujuy", "la_pampa": "La Pampa", "la_rioja": "La Rioja", "mendoza": "Mendoza", "misiones": "Misiones", "neuquen": "Neuquén", "rio_negro": "Río Negro", "salta": "Salta", "san_juan": "San Juan", "san_luis": "San Luis", "santa_cruz": "Santa Cruz", "santa_fe": "Santa Fe", "santiago_del_estero": "Santiago del Estero", "tucuman": "Tucumán", "tierra_del_fuego": "Tierra del Fuego"}};
+const S = DATA.s, Y = DATA.years, NAMES = DATA.names;
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+const r1 = x => Math.round(x * 10) / 10;
+const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+const A = S.argentina, N = A.length;
+const mA = mean(A), medA = median(A);
+const maxV = Math.max(...A), minV = Math.min(...A);
+const maxY = Y[A.indexOf(maxV)], minY = Y[A.indexOf(minV)];
+const rank = Object.keys(S).filter(k => k !== 'argentina').map(k => [k, mean(S[k])]).sort((a, b) => b[1] - a[1]);
+const nIn = (lo, hi) => A.filter(v => v >= lo - 1e-9 && v < hi - 1e-9).length;
+const pct = nIn(18, 20) / N * 100, nLow = A.filter(v => v < 16).length;
+const diffs = A.map((v, i) => i ? r1(v - A[i - 1]) : null);
+let run = 0; for (let i = N - 1; i >= 1 && diffs[i] < 0; i--) run++;
+const runFrom = Y[N - run];
+const worstI = diffs.reduce((b, d, i) => (i && d < diffs[b] ? i : b), 1);
+
+/* colores de los gráficos */
+const C = { ink:'#2A1B5E', soft:'#A99BDB', hi:'#6D3BEA', red:'#D62A52', green:'#0E8F5B', amber:'#E0A800' };
+const sd = a => { const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
+const skew = a => { const n = a.length, m = mean(a), s = sd(a); return n / ((n - 1) * (n - 2)) * a.reduce((t, v) => t + ((v - m) / s) ** 3, 0); };
+const keys = Object.keys(S).filter(k => k !== 'argentina');
+const nm = k => NAMES[k];
+const sorted = [...A].sort((x, y) => x - y);
+const qt = p => { const pos = (N + 1) * p, i = Math.floor(pos), f = pos - i; return sorted[i - 1] + f * (sorted[i] - sorted[i - 1]); };
+const Q1 = qt(.25), Q3 = qt(.75), sdA = sd(A), skA = skew(A), cv = sdA / mA * 100;
+const sdRank = keys.map(k => [k, sd(S[k])]).sort((a, b) => b[1] - a[1]);
+const r24 = keys.map(k => [k, S[k][N - 1]]).sort((a, b) => b[1] - a[1]);
+const dropRank = keys.map(k => [k, (S[k][0] - S[k][N - 1]) / S[k][0] * 100]).sort((a, b) => b[1] - a[1]);
+const dropPct = (A[0] - A[N - 1]) / A[0] * 100;
+const MIS = S.misiones, CAB = S.ciudad_autonoma_de_buenos_aires, gaps = MIS.map((v, i) => v - CAB[i]);
+const yGapMin = Y[gaps.indexOf(Math.min(...gaps))];
+const nDown = diffs.filter(d => d !== null && d < 0).length;
+const PER = [['2000–2009', 2000, 2009], ['2010–2019', 2010, 2019], ['2020–2024', 2020, 2024]].map(([l, a, b]) => [l, mean(A.filter((_, i) => Y[i] >= a && Y[i] <= b))]);
+const freq = {}; A.forEach(v => { const k = v.toFixed(1); freq[k] = (freq[k] || 0) + 1; });
+const freqList = Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+const modeK = freqList[0][0], modeN = freqList[0][1];
+const closest = (vals, t) => vals.reduce((b, v) => Math.abs(v - t) < Math.abs(b - t) ? v : b);
+const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* ---------- gráficos SVG (600 x 330), todos calculados desde los datos ---------- */
+const svgOpen = '<svg class="ch" viewBox="0 0 600 330" role="img" aria-label="Gráfico con los datos reales del archivo" xmlns="http://www.w3.org/2000/svg" font-family="Nunito,system-ui,sans-serif">';
+function chartBars(rows, cap, f){
+  const mx = Math.max(...rows.filter(Boolean).map(r => Math.abs(r.v))) * 1.2, x0 = 200;
+  let g = svgOpen, yy = 18;
+  rows.forEach(r => {
+    if (!r){ g += '<text class="t2" x="'+x0+'" y="'+(yy+12)+'" font-size="18">· · ·</text>'; yy += 26; return; }
+    const w = Math.max(4, r.v / mx * 355);
+    g += '<text class="t" x="190" y="'+(yy+18)+'" font-size="16" font-weight="'+(r.b?800:700)+'" text-anchor="end">'+r.l+'</text>'
+      + '<rect x="'+x0+'" y="'+yy+'" width="'+w+'" height="26" rx="6" fill="'+r.c+'"/>'
+      + '<text class="t" x="'+(x0+w+8)+'" y="'+(yy+19)+'" font-size="16" font-weight="800">'+fmt(r.v, f)+(r.s || '')+'</text>';
+    yy += 34;
+  });
+  return g + '<text class="t2" x="'+x0+'" y="324" font-size="13" font-weight="700">'+cap+'</text></svg>';
+}
+const topBottom = (list, s) => list.slice(0, 5).map((r, i) => ({ l:nm(r[0]), v:r[1], c:i === 0 ? C.hi : C.soft, b:i === 0, s }))
+  .concat([null], list.slice(-3).map((r, i, a) => ({ l:nm(r[0]), v:r[1], c:i === a.length - 1 ? C.red : C.soft, b:i === a.length - 1, s })));
+
+function chartLines(series, marks, o){
+  o = o || {};
+  const all = series.flatMap(s => s.v), lo = Math.floor(Math.min(...all) / 2) * 2, hi = Math.ceil(Math.max(...all) / 2) * 2;
+  const x = i => 52 + i / (N - 1) * 520, y = v => 285 - (v - lo) / (hi - lo) * 230, st = (hi - lo) > 14 ? 4 : 2;
+  let g = svgOpen;
+  for (let t = lo; t <= hi; t += st) g += '<line class="gl" x1="44" x2="580" y1="'+y(t)+'" y2="'+y(t)+'"/><text class="t2" x="36" y="'+(y(t)+5)+'" font-size="14" font-weight="700" text-anchor="end">'+t+'</text>';
+  Y.forEach((yr, i) => { if ((yr - 2000) % 4 === 0) g += '<text class="t2" x="'+x(i)+'" y="310" font-size="14" font-weight="700" text-anchor="middle">'+yr+'</text>'; });
+  series.forEach(s => { g += '<polyline fill="none" stroke="'+s.c+'" stroke-width="3.5" stroke-linejoin="round" points="'+s.v.map((v, i) => x(i)+','+y(v)).join(' ')+'"/>'; });
+  if (series.length === 1) series[0].v.forEach((v, i) => g += '<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.5" fill="'+series[0].c+'"/>');
+  if (series.length > 1) series.forEach((s, i) => g += '<line x1="'+(60 + i * 210)+'" x2="'+(88 + i * 210)+'" y1="22" y2="22" stroke="'+s.c+'" stroke-width="4"/><text class="t" x="'+(94 + i * 210)+'" y="27" font-size="16" font-weight="800">'+s.n+'</text>');
+  marks.forEach(m => {
+    const i = Y.indexOf(m.year), px = x(i), py = y(series[m.s].v[i]);
+    g += '<circle cx="'+px+'" cy="'+py+'" r="10" fill="none" stroke="'+m.c+'" stroke-width="4"/>';
+    if (m.text) g += '<text x="'+(px + m.dx)+'" y="'+(py + m.dy)+'" font-size="18" font-weight="800" fill="'+m.c+'" text-anchor="'+(m.dx < 0 ? 'end' : 'start')+'">'+m.text+'</text>';
+  });
+  return g + '</svg>';
+}
+const maxMin = () => chartLines([{ v:A, c:C.ink }], [
+  { s:0, year:maxY, c:C.green, text:'Máximo: '+fmt(maxV,1)+' en '+maxY, dx:16, dy:-10 },
+  { s:0, year:minY, c:C.red, text:'Mínimo: '+fmt(minV,1)+' en '+minY, dx:-16, dy:-14 }]);
+const gapChart = marks => chartLines([{ v:MIS, c:C.hi, n:'Misiones' }, { v:CAB, c:C.red, n:'Ciudad de Buenos Aires' }], marks || []);
+
+function chartDots(o){
+  o = o || {};
+  const x = v => 40 + (v - 8) / 12 * 530, base = 262, bins = {};
+  let g = svgOpen;
+  if (o.band) g += '<rect x="'+x(o.band[0])+'" y="40" width="'+(x(o.band[1]) - x(o.band[0]))+'" height="'+(base - 40)+'" fill="'+C.hi+'" opacity=".13"/><text fill="'+C.hi+'" x="'+((x(o.band[0]) + x(o.band[1])) / 2)+'" y="32" font-size="16" font-weight="800" text-anchor="middle">Media ± 1 desvío: '+fmt(o.band[0],1)+' a '+fmt(o.band[1],1)+'</text>';
+  for (let t = 8; t <= 20; t += 2) g += '<line class="gl" x1="'+x(t)+'" x2="'+x(t)+'" y1="40" y2="'+base+'"/><text class="t2" x="'+x(t)+'" y="288" font-size="15" font-weight="700" text-anchor="middle">'+fmt(t,0)+'</text>';
+  g += '<line class="ax" x1="30" x2="580" y1="'+base+'" y2="'+base+'"/>';
+  A.forEach(v => { const k = Math.round(v * 2) / 2; bins[k] = (bins[k] || 0) + 1; g += '<circle cx="'+x(k)+'" cy="'+(base - 11 - (bins[k] - 1) * 19)+'" r="8.5" fill="'+C.soft+'" stroke="#fff" stroke-width="1.5"/>'; });
+  const lines = o.lines || [{ v:mA, txt:'Media '+fmt(mA,2), col:C.red, dash:true }, { v:medA, txt:'Mediana '+fmt(medA,1), col:C.green }];
+  const lowest = Math.min(...lines.map(l => l.v));
+  lines.forEach(l => { const left = lines.length > 1 && l.v === lowest;
+    g += '<line x1="'+x(l.v)+'" x2="'+x(l.v)+'" y1="62" y2="'+base+'" stroke="'+l.col+'" stroke-width="3.5" '+(l.dash?'stroke-dasharray="8 6"':'')+'/>'
+      + '<text x="'+(x(l.v) + (left ? -8 : 8))+'" y="58" font-size="17" font-weight="800" fill="'+l.col+'" text-anchor="'+(left?'end':'start')+'">'+l.txt+'</text>'; });
+  return g + '<text class="t2" x="305" y="315" font-size="14" font-weight="700" text-anchor="middle">Tasa de natalidad por 1.000 hab.</text></svg>';
+}
+function chartBox(){
+  const x = v => 40 + (v - 8) / 12 * 530, cy = 150, h = 70;
+  let g = svgOpen;
+  for (let t = 8; t <= 20; t += 2) g += '<line class="gl" x1="'+x(t)+'" x2="'+x(t)+'" y1="60" y2="240"/><text class="t2" x="'+x(t)+'" y="262" font-size="15" font-weight="700" text-anchor="middle">'+fmt(t,0)+'</text>';
+  g += '<line x1="'+x(minV)+'" x2="'+x(maxV)+'" y1="'+cy+'" y2="'+cy+'" stroke="'+C.ink+'" stroke-width="3"/><line x1="'+x(minV)+'" x2="'+x(minV)+'" y1="'+(cy-14)+'" y2="'+(cy+14)+'" stroke="'+C.ink+'" stroke-width="3"/><line x1="'+x(maxV)+'" x2="'+x(maxV)+'" y1="'+(cy-14)+'" y2="'+(cy+14)+'" stroke="'+C.ink+'" stroke-width="3"/>'
+    + '<rect x="'+x(Q1)+'" y="'+(cy-h/2)+'" width="'+(x(Q3)-x(Q1))+'" height="'+h+'" rx="6" fill="'+C.soft+'" stroke="'+C.ink+'" stroke-width="3"/>'
+    + '<line x1="'+x(medA)+'" x2="'+x(medA)+'" y1="'+(cy-h/2)+'" y2="'+(cy+h/2)+'" stroke="'+C.green+'" stroke-width="5"/>';
+  const lab = (v, n, up, col) => '<text x="'+x(v)+'" y="'+(up ? cy - h/2 - 26 : cy + h/2 + 22)+'" font-size="15" font-weight="800" fill="'+col+'" text-anchor="middle">'+n+'</text><text x="'+x(v)+'" y="'+(up ? cy - h/2 - 8 : cy + h/2 + 40)+'" font-size="15" font-weight="800" fill="'+col+'" text-anchor="middle">'+fmt(v, v === medA || v === minV || v === maxV ? 1 : 2)+'</text>';
+  g += lab(Q1, 'Q1', true, C.ink) + lab(Q3, 'Q3', true, C.ink) + lab(medA, 'Mediana', false, C.green) + lab(minV, 'Mín.', false, C.ink) + lab(maxV, 'Máx.', false, C.ink);
+  return g + '<text class="t2" x="305" y="315" font-size="14" font-weight="700" text-anchor="middle">Tasa de natalidad por 1.000 hab.</text></svg>';
+}
+function chartClasses(){
+  const labels = ['8,0–9,9','10,0–11,9','12,0–13,9','14,0–15,9','16,0–17,9','18,0–19,9'];
+  const cnt = [0,1,2,3,4,5].map(k => nIn(8 + 2 * k, 10 + 2 * k)), mx = 12, base = 262;
+  let g = svgOpen;
+  [0, 4, 8, 12].forEach(t => g += '<line class="gl" x1="40" x2="585" y1="'+(base - t / mx * 215)+'" y2="'+(base - t / mx * 215)+'"/><text class="t2" x="32" y="'+(base - t / mx * 215 + 5)+'" font-size="14" font-weight="700" text-anchor="end">'+t+'</text>');
+  cnt.forEach((c, k) => {
+    const x = 56 + k * 90, h = c / mx * 215, hi = k === 5, col = hi ? C.hi : C.soft;
+    g += '<rect x="'+x+'" y="'+(base - h)+'" width="64" height="'+h+'" rx="6" fill="'+col+'"/>'
+      + '<text '+(hi?'fill="'+C.hi+'"':'class="t"')+' x="'+(x+32)+'" y="'+(base - h - (hi ? 26 : 8))+'" font-size="'+(hi?20:17)+'" font-weight="800" text-anchor="middle">'+c+(hi?' años':'')+'</text>'
+      + (hi ? '<text fill="'+C.hi+'" x="'+(x+32)+'" y="'+(base - h - 8)+'" font-size="17" font-weight="800" text-anchor="middle">('+fmt(c / N * 100,0)+' %)</text>' : '')
+      + '<text class="t2" x="'+(x+32)+'" y="286" font-size="13" font-weight="700" text-anchor="middle">'+labels[k]+'</text>';
+  });
+  return g + '<line class="ax" x1="40" x2="585" y1="'+base+'" y2="'+base+'"/><text class="t2" x="312" y="318" font-size="14" font-weight="700" text-anchor="middle">Clase de tasa de natalidad (años en cada clase)</text></svg>';
+}
+function chartVar(mode){
+  const z = 105, k = 58, step = 540 / 24, x = i => 44 + (i - 1) * step;
+  let g = svgOpen;
+  [-2, -1, 0, 1].forEach(t => g += '<line class="'+(t===0?'ax':'gl')+'" x1="40" x2="590" y1="'+(z - t * k)+'" y2="'+(z - t * k)+'"/><text class="t2" x="32" y="'+(z - t * k + 5)+'" font-size="13" font-weight="700" text-anchor="end">'+(t>0?'+':'')+t+'</text>');
+  for (let i = 1; i < N; i++){
+    const d = diffs[i], h = Math.abs(d) * k, col = d < 0 ? C.red : d > 0 ? C.green : C.amber, dim = mode === 'run' && i < N - run;
+    g += '<rect x="'+x(i)+'" y="'+(d >= 0 ? z - h : z)+'" width="'+(step - 5)+'" height="'+Math.max(h, 3)+'" rx="3" fill="'+col+'" '+(dim ? 'opacity=".4"' : '')+(mode === 'worst' && i === worstI ? ' stroke="'+C.ink+'" stroke-width="3"' : '')+'/>';
+  }
+  [2001, 2005, 2010, 2015, 2020, 2024].forEach(yr => g += '<text class="t2" x="'+(x(Y.indexOf(yr)) + (step - 5) / 2)+'" y="262" font-size="13" font-weight="700" text-anchor="middle">'+yr+'</text>');
+  if (mode === 'run'){
+    const a = x(N - run), b = x(N - 1) + step - 5;
+    g += '<path d="M'+a+' 276 v8 H'+b+' v-8" fill="none" stroke="'+C.red+'" stroke-width="3.5"/><text x="'+((a + b) / 2)+'" y="308" font-size="19" font-weight="800" fill="'+C.red+'" text-anchor="middle">'+run+' descensos seguidos</text>';
+  } else if (mode === 'worst'){
+    g += '<text x="'+(x(worstI) - 8)+'" y="'+(z + Math.abs(diffs[worstI]) * k - 2)+'" font-size="18" font-weight="800" fill="'+C.red+'" text-anchor="end">'+Y[worstI]+': '+fmt(diffs[worstI],1)+'</text>';
+  } else {
+    g += '<text x="315" y="306" font-size="19" font-weight="800" fill="'+C.red+'" text-anchor="middle">Bajó en '+nDown+' de '+(N - 1)+' años (barras rojas)</text>';
+  }
+  return g + '</svg>';
+}
+
+/* ---------- banco de preguntas: todo se calcula desde los datos ---------- */
+const opt = (t, ok) => ({ t, ok });
+const Q = (q, evT, chart, opts, note, shuffleOpts) => ({ q, evT, chart, opts, note, shuffle:!!shuffleOpts });
+const numOpts = (vals, target, fmtFn) => vals.map(v => opt(fmtFn(v), v === closest(vals, target)));
+const nameOpts = (list, best) => list.map(k => opt(nm(k), k === best));
+const idxOpts = (sortedList, idxs) => idxs.map(j => opt(nm(sortedList[j][0]), j === idxs[0]));
+const pairQ = (a, b, label, getV, evT) => {
+  const va = getV(a), vb = getV(b);
+  return Q('¿Qué jurisdicción tuvo '+label+' más alta: '+nm(a)+' o '+nm(b)+'?', evT,
+    () => chartBars([{ l:nm(a), v:va, c:va > vb ? C.hi : C.soft, b:va > vb }, { l:nm(b), v:vb, c:vb > va ? C.hi : C.soft, b:vb > va }], evT, 2),
+    [opt(nm(a), va > vb), opt(nm(b), vb > va), opt('Dan lo mismo', false)],
+    nm(a)+': '+fmt(va,2)+'. '+nm(b)+': '+fmt(vb,2)+'.');
+};
+const per = i => PER[i][1];
+const periodBars = () => chartBars(PER.map((p, i) => ({ l:p[0], v:p[1], c:p[1] === Math.min(...PER.map(q => q[1])) ? C.red : C.soft, b:false })), 'Tasa media de cada período (por 1.000 hab.)', 2);
+
+const LV = {
+  facil: { name:'Fácil', limit:30, mult:1, desc:'Años, máximos, mínimos y comparaciones directas.', qs:[
+    Q('¿En qué año fue más alta la tasa de natalidad de Argentina?', 'Tasa de natalidad de Argentina, 2000–2024', maxMin,
+      [2000, 2004, 2012, 2018].map(v => opt(String(v), v === maxY)), 'En '+maxY+' la tasa llegó a '+fmt(maxV,1)+'. El mínimo fue '+fmt(minV,1)+' en '+minY+'.'),
+    Q('¿En qué año fue más baja la tasa de natalidad de Argentina?', 'Tasa de natalidad de Argentina, 2000–2024', maxMin,
+      [2000, 2010, 2020, 2024].map(v => opt(String(v), v === minY)), 'El mínimo es '+fmt(minV,1)+', en '+minY+'. El máximo fue '+fmt(maxV,1)+' en '+maxY+'.'),
+    Q('¿Qué jurisdicción tuvo la tasa de natalidad media más alta entre 2000 y 2024?', 'Tasa media 2000–2024: las 5 mayores y las 3 menores', () => chartBars(topBottom(rank), 'Tasa media 2000–2024, por 1.000 hab.', 2),
+      nameOpts(['buenos_aires', 'cordoba', 'ciudad_autonoma_de_buenos_aires', 'misiones'], rank[0][0]),
+      nm(rank[0][0])+' tiene la media más alta ('+fmt(rank[0][1],2)+'). Le siguen '+nm(rank[1][0])+' ('+fmt(rank[1][1],2)+') y '+nm(rank[2][0])+' ('+fmt(rank[2][1],2)+').', true),
+    Q('¿Qué jurisdicción tuvo la tasa de natalidad media más baja entre 2000 y 2024?', 'Tasa media 2000–2024: las 5 mayores y las 3 menores', () => chartBars(topBottom(rank), 'Tasa media 2000–2024, por 1.000 hab.', 2),
+      nameOpts(['ciudad_autonoma_de_buenos_aires', 'santa_fe', 'cordoba', 'chaco'], rank[rank.length - 1][0]),
+      nm(rank[rank.length - 1][0])+' tiene la media más baja ('+fmt(rank[rank.length - 1][1],2)+'). La más alta es '+nm(rank[0][0])+' ('+fmt(rank[0][1],2)+').', true),
+    Q('La tasa de natalidad de Argentina en 2024, ¿es mayor, menor o igual que la de 2000?', 'Tasa de natalidad de Argentina en 2000 y en 2024',
+      () => chartBars([{ l:'2000', v:A[0], c:C.soft }, { l:'2024', v:A[N - 1], c:A[N - 1] < A[0] ? C.red : C.hi, b:true }], 'Por 1.000 habitantes', 1),
+      [opt('Menor', A[N - 1] < A[0]), opt('Mayor', A[N - 1] > A[0]), opt('Igual', A[N - 1] === A[0])],
+      'En 2000 fue '+fmt(A[0],1)+' y en 2024 fue '+fmt(A[N - 1],1)+'.'),
+    Q('¿Cuántos años abarca el archivo de datos?', 'Argentina, primer y último año del archivo',
+      () => chartLines([{ v:A, c:C.ink }], [{ s:0, year:2000, c:C.hi, text:'2000', dx:14, dy:-14 }, { s:0, year:2024, c:C.hi, text:'2024', dx:-14, dy:-14 }]),
+      [20, 24, 25, 30].map(v => opt(v+' años', v === N)), 'Va de 2000 a 2024, con un dato por año: '+N+' años.'),
+    pairQ('misiones', 'ciudad_autonoma_de_buenos_aires', 'la tasa de natalidad de 2024', k => S[k][N - 1], 'Tasa de natalidad de 2024 (por 1.000 hab.)'),
+    pairQ('chaco', 'santa_fe', 'la tasa de natalidad media', k => mean(S[k]), 'Tasa media 2000–2024 (por 1.000 hab.)'),
+    Q('¿Cuál fue, aproximadamente, la tasa de natalidad de Argentina en 2024?', 'Tasa de natalidad de Argentina, 2000–2024', maxMin,
+      numOpts([8.9, 11.9, 14.9, 17.9], A[N - 1], v => 'Cerca de '+fmt(v,1)), 'En 2024 fue '+fmt(A[N - 1],1)+', el valor más bajo de toda la serie.'),
+    Q('¿En qué período fue menor la tasa de natalidad media de Argentina?', 'Tasa media de cada período', periodBars,
+      PER.map((p, i) => opt(p[0], p[1] === Math.min(...PER.map(q => q[1])))), 'Medias: '+PER.map(p => p[0]+' '+fmt(p[1],2)).join('; ')+'.')
+  ]},
+  medio: { name:'Medio', limit:20, mult:1.5, desc:'Media, mediana, moda, porcentajes y tendencias.', qs:[
+    Q('La media de la tasa de natalidad de Argentina, ¿es mayor, menor o igual que la mediana?', 'Los 25 años de Argentina (cada punto es un año), con su media y su mediana', chartDots,
+      [opt('Menor que la mediana', mA < medA - 1e-9), opt('Mayor que la mediana', mA > medA + 1e-9), opt('Igual a la mediana', Math.abs(mA - medA) <= 1e-9)],
+      'La media es '+fmt(mA,2)+' y la mediana '+fmt(medA,1)+'. Los años recientes, con tasas muy bajas, tiran del promedio hacia abajo pero casi no mueven la mediana.'),
+    Q('¿Qué porcentaje de los 25 años tuvo una tasa de natalidad de entre 18,0 y 19,9?', 'Años de Argentina en cada clase de tasa', chartClasses,
+      [12, 28, 44, 60].map(v => opt(v+' %', Math.round(pct) === v)), 'Son '+nIn(18,20)+' de '+N+' años: el '+fmt(pct,0)+' %. Es la clase modal de la tabla de frecuencias.'),
+    Q('¿Cuántos años seguidos, hasta 2024, bajó la tasa de natalidad de Argentina?', 'Variación de la tasa respecto del año anterior (puntos por 1.000 hab.)', () => chartVar('run'),
+      [14, 10, 7, 4].map(v => opt(v+' años', v === run)), 'Bajó todos los años desde '+runFrom+' hasta 2024: '+run+' descensos consecutivos.'),
+    Q('¿En qué año hubo la mayor caída de la tasa de natalidad respecto del año anterior?', 'Variación de la tasa respecto del año anterior (puntos por 1.000 hab.)', () => chartVar('worst'),
+      [2008, 2016, 2020, 2024].map(v => opt(String(v), v === Y[worstI])), 'La mayor caída fue la de '+Y[worstI]+': '+fmt(diffs[worstI],1)+' puntos.'),
+    Q('¿Cuántos puntos hay entre el valor más alto y el más bajo de la serie de Argentina (el rango)?', 'Tasa de natalidad de Argentina, 2000–2024', maxMin,
+      numOpts([4.4, 7.4, 10.4, 13.4], maxV - minV, v => fmt(v,1)+' puntos'), 'Rango = máximo − mínimo = '+fmt(maxV,1)+' − '+fmt(minV,1)+' = '+fmt(maxV - minV,1)+' puntos.'),
+    Q('¿Cuál es la moda de la tasa de natalidad de Argentina, es decir, el valor que más se repite?', 'Valores que se repiten: cuántos años tuvo cada uno',
+      () => chartBars(freqList.slice(0, 6).map(([k, n], i) => ({ l:fmt(+k,1), v:n, c:i === 0 ? C.hi : C.soft, b:i === 0, s:n === 1 ? ' año' : ' años' })), 'Años en que se repitió cada valor', 0),
+      [16.4, 17.9, 18.5, 19.3].map(v => opt(fmt(v,1), v.toFixed(1) === modeK)), 'La moda es '+fmt(+modeK,1)+': aparece en '+modeN+' años.'),
+    Q('¿Cuál es, aproximadamente, la media de la tasa de natalidad de Argentina?', 'Los 25 años de Argentina (cada punto es un año), con su media y su mediana', chartDots,
+      numOpts([13, 16, 19, 22], mA, v => 'Cerca de '+v), 'La media es '+fmt(mA,2)+' por 1.000 habitantes.'),
+    Q('¿Qué jurisdicción quedó segunda en tasa de natalidad media, detrás de '+nm(rank[0][0])+'?', 'Tasa media 2000–2024: las 5 mayores y las 3 menores', () => chartBars(topBottom(rank), 'Tasa media 2000–2024, por 1.000 hab.', 2),
+      nameOpts(['chaco', 'formosa', 'corrientes', 'santiago_del_estero'], rank[1][0]), nm(rank[1][0])+' es segunda con '+fmt(rank[1][1],2)+', detrás de '+nm(rank[0][0])+' ('+fmt(rank[0][1],2)+').', true),
+    Q('La diferencia entre Misiones y la Ciudad de Buenos Aires, ¿se achicó o se agrandó entre 2000 y 2024?', 'Tasa de natalidad de Misiones y de la Ciudad de Buenos Aires',
+      () => gapChart([{ s:0, year:2000, c:C.hi, text:fmt(MIS[0],1), dx:14, dy:-12 }, { s:1, year:2000, c:C.red, text:fmt(CAB[0],1), dx:14, dy:24 }, { s:0, year:2024, c:C.hi, text:fmt(MIS[N-1],1), dx:-14, dy:-14 }, { s:1, year:2024, c:C.red, text:fmt(CAB[N-1],1), dx:-14, dy:28 }]),
+      [opt('Se achicó', gaps[N - 1] < gaps[0]), opt('Se agrandó', gaps[N - 1] > gaps[0]), opt('Quedó igual', gaps[N - 1] === gaps[0])],
+      'En 2000 la diferencia era de '+fmt(gaps[0],1)+' puntos y en 2024 de '+fmt(gaps[N - 1],1)+'.'),
+    Q('De los '+(N - 1)+' cambios de un año al siguiente, ¿en cuántos bajó la tasa de natalidad de Argentina?', 'Variación de la tasa respecto del año anterior (puntos por 1.000 hab.)', () => chartVar('count'),
+      [12, 15, 17, 20].map(v => opt(v+' años', v === nDown)), 'Bajó en '+nDown+' de los '+(N - 1)+' cambios anuales.')
+  ]},
+  dificil: { name:'Difícil', limit:15, mult:2, desc:'Dispersión, cuartiles, asimetría y variaciones porcentuales.', qs:[
+    Q('¿Cuánto bajó, en porcentaje, la tasa de natalidad de Argentina entre 2000 y 2024?', 'Tasa de natalidad de Argentina, 2000–2024',
+      () => chartLines([{ v:A, c:C.ink }], [{ s:0, year:2000, c:C.hi, text:fmt(A[0],1), dx:14, dy:-14 }, { s:0, year:2024, c:C.red, text:fmt(A[N-1],1), dx:-14, dy:-16 }]),
+      numOpts([20, 35, 53, 70], dropPct, v => v+' %'), 'De '+fmt(A[0],1)+' a '+fmt(A[N - 1],1)+': una baja del '+fmt(dropPct,1)+' %.'),
+    Q('¿Qué jurisdicción tuvo la mayor dispersión (desvío estándar) en su tasa de natalidad?', 'Desvío estándar 2000–2024: los 5 mayores y los 3 menores', () => chartBars(topBottom(sdRank), 'Desvío estándar de la tasa 2000–2024', 2),
+      nameOpts(['santa_cruz', 'misiones', 'ciudad_autonoma_de_buenos_aires', 'buenos_aires'], sdRank[0][0]), nm(sdRank[0][0])+' tiene el mayor desvío ('+fmt(sdRank[0][1],2)+'): su tasa cambió mucho a lo largo de los años.', true),
+    Q('¿Qué jurisdicción tuvo la menor dispersión (desvío estándar) en su tasa de natalidad?', 'Desvío estándar 2000–2024: los 5 mayores y los 3 menores', () => chartBars(topBottom(sdRank), 'Desvío estándar de la tasa 2000–2024', 2),
+      nameOpts(['santa_fe', 'santa_cruz', 'misiones', 'chubut'], sdRank[sdRank.length - 1][0]), nm(sdRank[sdRank.length - 1][0])+' tiene el menor desvío ('+fmt(sdRank[sdRank.length - 1][1],2)+'): su tasa fue la más estable.', true),
+    Q('La distribución de la tasa de natalidad de Argentina, ¿cómo es respecto de su simetría?', 'Los 25 años de Argentina (cada punto es un año), con su media y su mediana', chartDots,
+      [opt('Simétrica', Math.abs(skA) <= .5), opt('Asimétrica positiva (cola hacia valores altos)', skA > .5), opt('Asimétrica negativa (cola hacia valores bajos)', skA < -.5)],
+      'La asimetría es '+fmt(skA,3)+': negativa. La cola larga queda hacia los valores bajos y la media ('+fmt(mA,2)+') es menor que la mediana ('+fmt(medA,1)+').'),
+    Q('¿Entre qué valores se encuentra el 50 % central de las tasas de Argentina (de Q1 a Q3)?', 'Diagrama de caja de la tasa de Argentina, 2000–2024', chartBox,
+      [[12, 16], [14.7, 18.5], [16.4, 19.3], [8.9, 14.7]].map((p, i, arr) => { const d = p => Math.abs(p[0] - Q1) + Math.abs(p[1] - Q3), best = arr.reduce((b, q) => d(q) < d(b) ? q : b); return opt('Entre '+fmt(p[0],1)+' y '+fmt(p[1],1), p === best); }),
+      'Q1 = '+fmt(Q1,2)+' y Q3 = '+fmt(Q3,2)+' (promedio ponderado de SPSS). Entre esos valores está la mitad de los años.'),
+    Q('El coeficiente de variación de la tasa de Argentina (desvío ÷ media), ¿es aproximadamente...?', 'Los 25 años de Argentina, con la media y un desvío estándar a cada lado', () => chartDots({ lines:[{ v:mA, txt:'Media '+fmt(mA,2), col:C.red, dash:true }], band:[mA - sdA, mA + sdA] }),
+      numOpts([5, 10, 20, 40], cv, v => 'Cerca de '+v+' %'), 'Desvío '+fmt(sdA,2)+' ÷ media '+fmt(mA,2)+' = '+fmt(cv,1)+' %.'),
+    Q('¿Cuál fue la tasa de natalidad media de Argentina entre 2020 y 2024?', 'Tasa media de cada período', periodBars,
+      numOpts([8.6, 10.6, 12.6, 14.6], per(2), v => fmt(v,1)), 'La media de 2020–2024 fue '+fmt(per(2),2)+'. Las de 2000–2009 y 2010–2019 fueron '+fmt(per(0),2)+' y '+fmt(per(1),2)+'.'),
+    Q('¿Qué jurisdicción tuvo la mayor caída porcentual de su tasa entre 2000 y 2024?', 'Caída porcentual 2000–2024: las 5 mayores y las 3 menores', () => chartBars(topBottom(dropRank, ' %'), 'Caída de la tasa entre 2000 y 2024, en %', 1),
+      idxOpts(dropRank, [0, 6, 13, 21]), nm(dropRank[0][0])+' cayó '+fmt(dropRank[0][1],1)+' %. Argentina en total cayó '+fmt(dropPct,1)+' %.', true),
+    Q('¿Qué jurisdicción tuvo la tasa de natalidad más alta en 2024?', 'Tasa de 2024: las 5 mayores y las 3 menores', () => chartBars(topBottom(r24), 'Tasa de natalidad de 2024, por 1.000 hab.', 1),
+      idxOpts(r24, [0, 5, 12, 21]), nm(r24[0][0])+' lideró en 2024 con '+fmt(r24[0][1],1)+'. La más baja fue '+nm(r24[r24.length - 1][0])+' ('+fmt(r24[r24.length - 1][1],1)+').', true),
+    Q('¿En qué año fue menor la diferencia de tasa entre Misiones y la Ciudad de Buenos Aires?', 'Tasa de natalidad de Misiones y de la Ciudad de Buenos Aires',
+      () => gapChart([{ s:0, year:yGapMin, c:C.hi, text:'Brecha mínima: '+fmt(Math.min(...gaps),1)+' en '+yGapMin, dx:-16, dy:100 }, { s:1, year:yGapMin, c:C.red }]),
+      [2005, 2011, 2016, 2021].map(v => opt(String(v), v === yGapMin)), 'La brecha fue mínima en '+yGapMin+' ('+fmt(Math.min(...gaps),1)+' puntos). En 2000 era de '+fmt(gaps[0],1)+' y en 2024 de '+fmt(gaps[N - 1],1)+'.')
+  ]}
+};
+LV.mixto = { name:'Mixto', limit:20, mult:1.5, desc:'10 preguntas al azar de los tres niveles.', qs:[].concat(LV.facil.qs, LV.medio.qs, LV.dificil.qs) };
+const ROUND_N = 10;
+
+const ICON = {
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>',
+  no:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8.5"/><path d="M12 8.5V13l3 2M9.5 2.5h5"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
+  trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 14v4M8.5 20h7"/></svg>',
+  on:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+  off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>'
+};
+
+/* ---------- sonido (Web Audio, sin archivos) ---------- */
+let AC = null;
+const ac = () => { if (!state.sound) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } };
+function tone(f, d, type, v, at, slide){
+  const c = ac(); if (!c) return;
+  const t = c.currentTime + (at || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v || .15, t + .012); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + .03);
+}
+function whoosh(){
+  const c = ac(); if (!c) return;
+  const len = c.sampleRate * .7, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime;
+  s.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3200, t + .6);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.28, t + .25); g.gain.exponentialRampToValueAtTime(.0001, t + .7);
+  s.connect(f); f.connect(g); g.connect(c.destination); s.start(t);
+}
+const SFX = {
+  start(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, 'square', .09, i * .09)); },
+  tick(){ tone(1000, .06, 'square', .06); },
+  hot(){ tone(1400, .09, 'square', .09); },
+  pick(){ tone(660, .08, 'triangle', .2); tone(880, .1, 'triangle', .2, .07); },
+  reveal(){ whoosh(); },
+  good(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .28, 'triangle', .2, i * .1)); tone(1319, .5, 'triangle', .18, .42); },
+  bad(){ tone(330, .35, 'sawtooth', .12, 0, 140); tone(247, .5, 'sawtooth', .12, .22, 90); },
+  timeup(){ tone(220, .25, 'square', .12); tone(220, .5, 'square', .12, .3); },
+  fanfare(){ [523, 523, 523, 659, 784, 1047].forEach((f, i) => tone(f, i > 2 ? .35 : .14, 'square', .1, i * .15 + (i > 2 ? .12 : 0))); }
+};
+
+/* ---------- ranking (se guarda en este navegador) ---------- */
+const RK = 'adivina-antes-de-ver:ranking:v1', NK = 'adivina-antes-de-ver:nombre:v1';
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let ranking = lsGet(RK, []); if (!Array.isArray(ranking)) ranking = [];
+const rankList = lv => ranking.filter(e => e.level === lv).sort((a, b) => b.pts - a.pts || b.hits - a.hits || a.id - b.id);
+
+const L = 'ABCD', CIRC = 2 * Math.PI * 38;
+const state = { view:'start', level:'medio', rankLevel:'medio', i:0, rounds:[], answers:[], revealed:false, limit:LV.medio.limit, sound:true, left:20, t0:0, timer:null, lastSec:null, name:lsGet(NK, ''), err:'', lastId:null, armed:false };
+const okIdx = r => r.opts.findIndex(o => o.ok);
+const points = () => state.answers.reduce((s, a) => s + (a ? a.pts : 0), 0);
+const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
+const nR = () => state.rounds.length || ROUND_N;
+
+function ringHTML(done){
+  if (!state.limit) return '';
+  const left = state.left, cls = 'ringw' + (left <= 5 ? ' hot' : '') + (done ? ' done' : '');
+  return '<div class="'+cls+'" id="ring" role="timer" aria-label="Tiempo restante"><svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="38" fill="none" stroke-width="9"/><circle class="fg" id="arc" cx="46" cy="46" r="38" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+CIRC+'" stroke-dashoffset="'+(CIRC * (1 - left / state.limit))+'"/></svg><span class="num" id="rnum">'+Math.ceil(left)+'</span></div>';
+}
+function startHTML(){
+  const lvls = Object.keys(LV).map(k => '<button class="lvl" data-action="level" data-v="'+k+'" aria-pressed="'+(state.level === k)+'"><b>'+LV[k].name+'</b><span>'+LV[k].desc+'</span><em>x'+String(LV[k].mult).replace('.', ',')+' puntos</em></button>').join('');
+  const times = [10, 15, 20, 30, 0].map(v => '<button class="chip" data-action="time" data-v="'+v+'" aria-pressed="'+(state.limit === v)+'">'+(v ? v + ' s' : 'Sin tiempo')+'</button>').join('');
+  return '<section class="hero"><div><h1>Adiviná antes de ver</h1>'
+    + '<p class="lede">Preguntamos primero y mostramos después. El público apuesta contra el reloj y recién entonces se destapan los datos reales de la natalidad argentina.</p></div>'
+    + '<div class="stagebox" aria-hidden="true"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><div class="cover"><div class="half l"></div><div class="half r"></div><div class="cmsg">'+ICON.lock+'<b>Datos tapados</b></div></div></div></section>'
+    + '<div class="formrow"><div class="field"><label for="nameIn">Nombre del jugador o equipo</label><input id="nameIn" maxlength="20" autocomplete="off" placeholder="Por ejemplo: Equipo Estadística" value="'+esc(state.name)+'"><p class="err" id="err" role="alert">'+esc(state.err)+'</p></div></div>'
+    + '<div class="set"><div style="flex:1;min-width:100%"><h3>Dificultad</h3><div class="lvls" style="margin-top:8px">'+lvls+'</div></div></div>'
+    + '<div class="set"><div><h3>Tiempo para votar</h3><div class="chips" style="margin-top:8px">'+times+'</div></div>'
+    + '<div class="row-actions"><button class="btn big" data-action="start" id="startBtn">Empezar</button><button class="btn ghost" data-action="rank">'+ICON.trophy+'Ranking</button></div></div>'
+    + '<p class="src">Cada partida tiene '+ROUND_N+' preguntas. Hay '+LV.mixto.qs.length+' en total, todas calculadas con el archivo tasa-natalidad-deis-2000-2024.csv (DEIS). Sonido: botón de arriba o tecla M.</p>';
+}
+function roundHTML(){
+  const r = state.rounds[state.i], a = state.answers[state.i], rev = state.revealed, good = okIdx(r), lv = LV[state.level];
+  let opts = '';
+  r.opts.forEach((o, k) => {
+    let cls = 'opt', mark = '', tag = '';
+    if (rev){
+      if (k === good){ cls += ' ok'; mark = ICON.ok; }
+      else if (k === a.pick){ cls += ' no'; mark = ICON.no; }
+      else cls += ' dim';
+      if (k === a.pick) tag = '<span class="tag">Votó el público</span>';
+    }
+    opts += '<button class="'+cls+'" data-action="pick" data-k="'+k+'" '+(rev?'disabled':'')+' aria-label="Opción '+L[k]+': '+esc(o.t)+'"><span class="ltr">'+L[k]+'</span><span>'+o.t+'</span>'+tag+'<span class="mark">'+mark+'</span></button>';
+  });
+  let h = '<div class="qcard"><h2 class="q"><span class="qn">Nivel '+lv.name+' · Pregunta '+(state.i+1)+' de '+nR()+'</span>'+r.q+'</h2>'+ringHTML(rev)+'</div>'
+    + '<div class="play"><div class="opts"><p class="opts-cap">'+(rev ? 'Respuesta del público y respuesta correcta' : 'Tocá la opción que eligió la mayoría')+'</p>'+opts+'</div>'
+    + '<div class="evi'+(rev?' open snap':'')+'" id="evi"><h2>'+r.evT+'</h2><div '+(rev?'':'aria-hidden="true"')+'>'+r.chart()+'</div>'
+    + '<div class="cover" aria-hidden="'+(rev?'true':'false')+'"><div class="half l"></div><div class="half r"></div><div class="cmsg">'+ICON.lock+'<b>Datos tapados</b><span>El telón se abre cuando el público apuesta.</span></div></div></div></div>';
+  if (rev){
+    const last = state.i === nR() - 1, to = a.timeout;
+    h += '<div class="result '+(a.ok?'ok':'no')+'" role="status"><div><p class="verdict">'+(to?ICON.clock:a.ok?ICON.ok:ICON.no)+(to?'Se acabó el tiempo':a.ok?'El público acertó':'El público falló')+'</p>'
+      + '<p class="answer">Respuesta correcta: <b>'+L[good]+'. '+r.opts[good].t+'</b></p>'+(a.ok?'<span class="bonus">+'+a.pts+' puntos</span>':'')+'</div>'
+      + '<p class="note">'+r.note+'</p>'
+      + '<button class="btn" data-action="next" id="nextBtn">'+(last?'Ver resultado':'Siguiente')+'</button></div>';
+  }
+  return h;
+}
+function endHTML(){
+  const n = nR(), hits = state.answers.filter(x => x.ok).length, lv = LV[state.level];
+  const msg = hits === n ? 'El público adivinó todo.' : hits >= Math.ceil(n * .6) ? 'El público intuyó bien los datos.' : 'Los datos sorprendieron al público.';
+  const pos = rankList(state.level).findIndex(e => e.id === state.lastId) + 1;
+  let rows = '';
+  state.rounds.forEach((r, k) => {
+    const a = state.answers[k], g = okIdx(r);
+    rows += '<li><span class="k">'+(k+1)+'</span><span>'+r.q+' <b>'+r.opts[g].t+'.</b></span><span class="v '+(a.ok?'ok':'no')+'">'+(a.ok?ICON.ok:a.timeout?ICON.clock:ICON.no)+(a.ok?'Acertó':a.timeout?'Sin tiempo':'Eligió '+r.opts[a.pick].t)+'</span></li>';
+  });
+  return '<div class="final"><span class="n">'+hits+' de '+n+'</span><span class="tt">'+msg+'</span><span class="pp">'+esc(state.name)+': '+points()+' puntos, nivel '+lv.name+(state.limit ? ', '+state.limit+' segundos por ronda' : ', sin límite de tiempo')+'.</span>'
+    + (pos ? '<span class="rkpos">Quedaste N.º '+pos+' en el ranking de nivel '+lv.name+'.</span>' : '') + '</div>'
+    + '<div class="row-actions"><button class="btn" data-action="again">Jugar de nuevo</button><button class="btn ghost" data-action="rank">'+ICON.trophy+'Ver ranking</button><button class="btn ghost" data-action="home">Cambiar nivel o nombre</button></div>'
+    + '<ul class="recap">'+rows+'</ul>';
+}
+function rankHTML(){
+  const lv = state.rankLevel, list = rankList(lv).slice(0, 10);
+  const tabs = Object.keys(LV).map(k => '<button class="chip" data-action="ranktab" data-v="'+k+'" aria-pressed="'+(k === lv)+'">'+LV[k].name+'</button>').join('');
+  let body;
+  if (!list.length) body = '<p class="empty">Todavía no hay partidas en el nivel '+LV[lv].name+'. Jugá una y quedás primero.</p>';
+  else body = '<table class="tbl"><caption class="src" style="text-align:left;caption-side:bottom">Se ordena por puntos y, si empatan, por aciertos.</caption><thead><tr><th>N.º</th><th>Nombre</th><th>Puntos</th><th>Aciertos</th><th class="hide-s">Tiempo</th><th class="hide-s">Fecha</th></tr></thead><tbody>'
+    + list.map((e, i) => '<tr class="'+(e.id === state.lastId ? 'me' : '')+'"><td><span class="pos p'+(i+1)+'">'+(i+1)+'</span></td><td class="nm">'+esc(e.name)+'</td><td class="num">'+e.pts+'</td><td>'+e.hits+' de '+e.total+'</td><td class="hide-s">'+(e.limit ? e.limit+' s' : 'Sin tiempo')+'</td><td class="hide-s">'+new Date(e.id).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' })+'</td></tr>').join('') + '</tbody></table>';
+  return '<h2 class="q" style="color:var(--yellow)">Ranking</h2><div class="chips">'+tabs+'</div>'+body
+    + '<div class="row-actions"><button class="btn" data-action="home">Volver al inicio</button>'
+    + (list.length ? '<button class="btn danger'+(state.armed ? ' arm' : '')+'" data-action="clear">'+(state.armed ? 'Tocá de nuevo para borrar el nivel '+LV[lv].name : 'Borrar ranking de este nivel')+'</button>' : '') + '</div>'
+    + '<p class="rknote">El ranking se guarda en este navegador de esta computadora. Si abren el juego en otro dispositivo, empieza vacío.</p>';
+}
+function header(){
+  const seg = [];
+  for (let k = 0; k < nR(); k++){ const a = state.answers[k]; seg.push('<span class="seg '+(a ? (a.ok?'ok':'no') : (state.view==='round' && k===state.i ? 'cur' : ''))+'"></span>'); }
+  document.getElementById('progress').innerHTML = state.view === 'rank' ? '' : seg.join('');
+  document.getElementById('score').innerHTML = state.answers.length && state.view !== 'rank' ? 'Puntos <b>'+points()+'</b>' : '';
+  const b = document.getElementById('sndBtn'); b.innerHTML = state.sound ? ICON.on : ICON.off;
+  b.setAttribute('aria-label', state.sound ? 'Silenciar sonido' : 'Activar sonido'); b.setAttribute('aria-pressed', String(!state.sound));
+}
+
+/* ---------- temporizador ---------- */
+function stopTimer(){ if (state.timer){ clearInterval(state.timer); state.timer = null; } }
+function startTimer(){
+  stopTimer(); state.left = state.limit; state.lastSec = null;
+  if (!state.limit) return;
+  state.t0 = performance.now();
+  state.timer = setInterval(() => {
+    state.left = Math.max(0, state.limit - (performance.now() - state.t0) / 1000);
+    const ring = document.getElementById('ring'); if (!ring) return;
+    document.getElementById('arc').setAttribute('stroke-dashoffset', CIRC * (1 - state.left / state.limit));
+    const sec = Math.ceil(state.left); document.getElementById('rnum').textContent = sec;
+    ring.classList.toggle('hot', state.left <= 5);
+    if (sec !== state.lastSec){ state.lastSec = sec; if (sec > 0 && sec <= 5) SFX.hot(); else if (sec > 5 && state.limit >= 20 && sec % 5 === 0) SFX.tick(); }
+    if (state.left <= 0) timeUp();
+  }, 100);
+}
+function timeUp(){
+  if (state.view !== 'round' || state.revealed) return;
+  stopTimer();
+  state.answers[state.i] = { pick:-1, ok:false, timeout:true, pts:0 };
+  state.revealed = true; SFX.timeup(); render(true);
+  setTimeout(SFX.reveal, 600);
+}
+function confetti(){
+  if (reduced()) return;
+  const box = document.createElement('div'); box.className = 'confetti'; const cols = ['#FFC93C', '#35D391', '#FF6B88', '#8CB4FF', '#fff'];
+  for (let n = 0; n < 46; n++){ const p = document.createElement('i'); p.style.cssText = 'left:'+(Math.random()*100)+'%;background:'+cols[n%5]+';--x:'+((Math.random()-.5)*240)+'px;--r:'+(Math.random()*720)+'deg;--d:'+(1.4+Math.random()*1.2)+'s;animation-delay:'+(Math.random()*.25)+'s'; box.appendChild(p); }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 3200);
+}
+
+function render(animate){
+  const st = document.getElementById('stage');
+  st.innerHTML = state.view==='start' ? startHTML() : state.view==='round' ? roundHTML() : state.view==='rank' ? rankHTML() : endHTML();
+  header();
+  if (state.view==='round' && state.revealed){
+    const e = document.getElementById('evi');
+    if (animate){ e.classList.remove('open'); void e.offsetWidth; e.classList.remove('snap'); void e.offsetWidth; e.classList.add('open'); }
+    const b = document.getElementById('nextBtn'); if (b) b.focus({ preventScroll:true });
+    if (animate){ const r = document.querySelector('.result'); r && r.scrollIntoView({ block:'end', behavior: reduced() ? 'auto' : 'smooth' }); return; }
+  }
+  window.scrollTo(0, 0);
+}
+function pick(k){
+  if (state.view!=='round' || state.revealed) return;
+  const r = state.rounds[state.i]; if (k < 0 || k >= r.opts.length) return;
+  stopTimer();
+  const ok = r.opts[k].ok, pts = ok ? Math.round((100 + (state.limit ? Math.round(state.left) * 10 : 0)) * LV[state.level].mult) : 0;
+  state.answers[state.i] = { pick:k, ok, pts };
+  state.revealed = true; SFX.pick(); render(true);
+  setTimeout(SFX.reveal, 250);
+  setTimeout(() => { if (ok){ SFX.good(); confetti(); } else { SFX.bad(); const e = document.getElementById('evi'); if (e && !reduced()){ e.classList.add('shake'); setTimeout(() => e.classList.remove('shake'), 500); } } }, 950);
+}
+function finish(){
+  const e = { id:Date.now(), name:state.name, level:state.level, pts:points(), hits:state.answers.filter(x => x.ok).length, total:nR(), limit:state.limit };
+  ranking.push(e); ranking = ranking.slice(-300); lsSet(RK, ranking); state.lastId = e.id; state.rankLevel = state.level;
+  state.view = 'end'; render(); SFX.fanfare();
+  if (e.hits >= Math.ceil(e.total * .8)) setTimeout(confetti, 500);
+}
+function next(){
+  if (state.view!=='round' || !state.revealed) return;
+  if (state.i === nR() - 1) finish(); else { state.i++; state.revealed = false; render(); startTimer(); }
+}
+function begin(){
+  const name = state.name.trim();
+  if (!name){ state.err = 'Escribí un nombre para el ranking.'; const el = document.getElementById('err'); if (el) el.textContent = state.err; const inp = document.getElementById('nameIn'); inp ? inp.focus() : (state.view = 'start', render()); return; }
+  state.name = name; lsSet(NK, name); state.err = '';
+  state.rounds = shuffle(LV[state.level].qs).slice(0, ROUND_N).map(q => ({ ...q, opts:q.shuffle ? shuffle(q.opts) : q.opts }));
+  state.answers = []; state.i = 0; state.revealed = false; state.view = 'round'; state.lastId = null;
+  SFX.start(); render(); startTimer();
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-action]'); if (!t) return;
+  const a = t.dataset.action;
+  if (a === 'start' || a === 'again') begin();
+  else if (a === 'pick') pick(+t.dataset.k);
+  else if (a === 'next') next();
+  else if (a === 'home'){ stopTimer(); state.view = 'start'; state.answers = []; state.rounds = []; state.armed = false; render(); }
+  else if (a === 'level'){ state.level = t.dataset.v; state.limit = LV[state.level].limit; state.left = state.limit; render(); const c = document.querySelector('.lvl[aria-pressed=true]'); c && c.focus(); }
+  else if (a === 'time'){ state.limit = +t.dataset.v; state.left = state.limit; render(); const c = document.querySelector('.chip[aria-pressed=true]'); c && c.focus(); }
+  else if (a === 'rank'){ stopTimer(); state.rankLevel = state.view === 'end' ? state.level : state.level; state.view = 'rank'; state.armed = false; render(); }
+  else if (a === 'ranktab'){ state.rankLevel = t.dataset.v; state.armed = false; render(); const c = document.querySelector('.chip[aria-pressed=true]'); c && c.focus(); }
+  else if (a === 'clear'){ if (!state.armed){ state.armed = true; render(); } else { ranking = ranking.filter(x => x.level !== state.rankLevel); lsSet(RK, ranking); state.armed = false; render(); } }
+  else if (a === 'sound'){ state.sound = !state.sound; header(); if (state.sound) SFX.pick(); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'nameIn'){ state.name = e.target.value; state.err = ''; const el = document.getElementById('err'); if (el) el.textContent = ''; } });
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (e.target && e.target.tagName === 'INPUT'){ if (k === 'enter'){ e.preventDefault(); begin(); } return; }
+  if (k === 'm'){ state.sound = !state.sound; header(); if (state.sound) SFX.pick(); return; }
+  if (state.view==='round' && !state.revealed){
+    const i = 'abcd'.indexOf(k); if (i >= 0 && k.length === 1) pick(i);
+    else if ('1234'.includes(k) && k.length === 1) pick(+k - 1);
+  } else if (state.view==='round' && state.revealed){
+    if (e.target.closest && e.target.closest('button') && (k==='enter' || k===' ')) return;
+    if (k==='enter' || k===' ' || k==='arrowright'){ e.preventDefault(); next(); }
+  }
+});
+render();
+</script>
+</body>
+</html>

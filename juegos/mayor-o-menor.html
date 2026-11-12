@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mayor o menor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: una sola pantalla. Dos tarjetas (dato de referencia y dato oculto) sobre una recta numérica
+     que se parte en "menor" y "mayor" en el valor de referencia; abajo, votos o resultado. */
+  --paper:#F3F6F9; --card:#FFFFFF; --ink:#0F2747; --ink-2:#51627A; --grid:#E1E8EF;
+  --up:#0B7A84; --up-bg:#D9EFF1; --down:#C73E14; --down-bg:#FADFD6;
+  --display:'Bricolage Grotesque','Arial Narrow',system-ui,sans-serif;
+  --body:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:44px 44px;
+  color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.45;
+}
+#app{min-height:100%;display:flex;flex-direction:column}
+button{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
+
+.top{display:flex;align-items:center;gap:clamp(12px,2vw,28px);padding:14px clamp(16px,3vw,40px);background:var(--card);border-bottom:2px solid var(--ink);flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.05;letter-spacing:-.015em}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:14px;color:var(--ink-2);letter-spacing:0;margin-top:2px}
+.progress{flex:1;display:flex;gap:6px;justify-content:center;min-width:140px}
+.seg{width:clamp(16px,3vw,38px);height:12px;border-radius:6px;background:var(--grid);border:2px solid var(--grid)}
+.seg.cur{background:var(--card);border-color:var(--ink)}
+.seg.ok{background:var(--up);border-color:var(--up)}
+.seg.no{background:var(--down);border-color:var(--down)}
+.score{font-family:var(--display);font-weight:700;font-size:19px;text-align:right;white-space:nowrap;min-height:38px}
+.score b{font-size:34px;font-weight:800;letter-spacing:-.02em}
+
+main{flex:1;width:min(1180px,100%);margin:0 auto;padding:clamp(16px,2.4vw,30px) clamp(16px,3vw,40px) 30px;display:flex;flex-direction:column;gap:clamp(14px,2vw,26px)}
+
+/* tarjetas */
+.cards{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(12px,2vw,28px);align-items:stretch}
+.card{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:clamp(14px,2vw,26px);display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.hidden{border-style:dashed;border-color:var(--ink-2)}
+.card.up{border-color:var(--up);background:var(--up-bg)}
+.card.down{border-color:var(--down);background:var(--down-bg)}
+.role{font-size:16px;font-weight:600;color:var(--ink-2);margin:0}
+.big{font-family:var(--display);font-weight:800;font-size:clamp(64px,12vw,150px);line-height:.95;letter-spacing:-.035em;font-variant-numeric:tabular-nums;margin:2px 0 4px}
+.card.up .big{color:var(--up)}
+.card.down .big{color:var(--down)}
+.desc{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.7vw,36px);line-height:1.1;margin:0}
+.sub{color:var(--ink-2);font-size:clamp(15px,1.6vw,19px);margin:0}
+.mid{align-self:center;font-family:var(--display);font-weight:700;font-size:clamp(18px,2vw,26px);text-align:center;color:var(--ink-2);max-width:5.4em;text-wrap:balance;line-height:1.15}
+@keyframes pop{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.big.pop{animation:pop .45s ease-out both}
+
+/* recta numérica */
+.scale{position:relative;height:160px;margin:0 8px}
+.track{position:absolute;left:0;right:0;top:52px;height:56px;border-radius:10px;overflow:hidden;background:var(--card);box-shadow:0 0 0 2px var(--ink)}
+.zone{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 14px;font-family:var(--display);font-weight:700;font-size:21px;white-space:nowrap;overflow:hidden}
+.zone.lo{left:0;background:var(--down-bg);color:var(--down)}
+.zone.hi{right:0;background:var(--up-bg);color:var(--up);justify-content:flex-end}
+.tick{position:absolute;top:118px;transform:translateX(-50%);font-size:15px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.tick::before{content:"";position:absolute;left:50%;top:-10px;width:2px;height:8px;background:var(--ink-2);transform:translateX(-50%)}
+.refline{position:absolute;top:34px;height:80px;width:4px;background:var(--ink);transform:translateX(-50%);z-index:2;border-radius:2px}
+.flag{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:#fff;font-family:var(--display);font-weight:800;font-size:22px;padding:3px 14px;border-radius:8px;white-space:nowrap;z-index:2;font-variant-numeric:tabular-nums}
+.dot{position:absolute;top:44px;width:72px;height:72px;margin-left:-36px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:20px;color:#fff;z-index:3;opacity:0;border:3px solid #fff;box-shadow:0 0 0 2px var(--ink);transition:left .95s cubic-bezier(.2,.8,.2,1),opacity .2s;font-variant-numeric:tabular-nums}
+.dot.up{background:var(--up)}
+.dot.down{background:var(--down)}
+.dot.idle{background:var(--ink-2);opacity:1}
+
+/* acciones */
+.vote-cap{text-align:center;font-weight:600;color:var(--ink-2);font-size:18px;margin:0}
+.votes{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2vw,24px)}
+.btn{display:flex;align-items:center;justify-content:center;gap:14px;border:0;border-radius:14px;padding:clamp(16px,2.2vw,26px);font-family:var(--display);font-weight:800;font-size:clamp(28px,3.6vw,44px);color:#fff;cursor:pointer;line-height:1;transition:transform .12s,filter .12s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-2px)}
+.btn:active{transform:translateY(0)}
+.btn svg{width:.9em;height:.9em;flex:none}
+.btn.menor{background:var(--down)}
+.btn.mayor{background:var(--up)}
+.btn.dark{background:var(--ink);font-size:clamp(20px,2.2vw,26px);padding:16px 26px}
+.btn.light{background:var(--card);color:var(--ink);box-shadow:0 0 0 2px var(--ink);font-size:clamp(20px,2.2vw,26px);padding:16px 26px}
+
+.result{--c:var(--up);display:grid;grid-template-columns:1.05fr 1.5fr auto;gap:clamp(12px,2vw,28px);align-items:center;background:var(--card);border-radius:14px;padding:clamp(14px,2vw,22px) clamp(14px,2vw,24px);box-shadow:0 0 0 2px var(--ink);border-left:12px solid var(--c)}
+.result.no{--c:var(--down)}
+.verdict{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:clamp(23px,2.6vw,33px);line-height:1.1;color:var(--c);margin:0}
+.verdict svg{width:36px;height:36px;flex:none}
+.cmp{font-size:clamp(16px,1.8vw,20px);margin:6px 0 0;font-variant-numeric:tabular-nums}
+.note{margin:0;font-size:clamp(16px,1.7vw,19px);line-height:1.5;max-width:60ch}
+
+/* inicio */
+.hero h1{font-family:var(--display);font-weight:800;font-size:clamp(52px,10vw,124px);line-height:.92;letter-spacing:-.04em;margin:0 0 14px}
+.lede{font-size:clamp(18px,2vw,23px);max-width:44ch;margin:0;color:var(--ink)}
+.demo{margin-top:8px}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,2vw,28px);margin:0;padding:0;list-style:none;counter-reset:s}
+.how li{counter-increment:s;background:var(--card);border-radius:12px;padding:16px 18px 16px 62px;position:relative;box-shadow:0 0 0 2px var(--grid);font-size:18px}
+.how li::before{content:counter(s);position:absolute;left:16px;top:14px;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:19px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2vw,28px)}
+.mode{text-align:left;background:var(--card);border:0;border-radius:14px;padding:clamp(16px,2vw,24px);box-shadow:0 0 0 2px var(--ink);cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .12s,box-shadow .12s}
+.mode:hover{transform:translateY(-3px);box-shadow:0 0 0 2px var(--ink),0 8px 0 0 var(--ink)}
+.mode b{font-family:var(--display);font-weight:800;font-size:clamp(24px,2.8vw,34px);line-height:1.1}
+.mode span{color:var(--ink-2);font-size:clamp(16px,1.7vw,19px)}
+.src{font-size:14px;color:var(--ink-2);margin:0}
+
+/* final */
+.final{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+.final .n{font-family:var(--display);font-weight:800;font-size:clamp(72px,14vw,170px);line-height:.9;letter-spacing:-.04em}
+.final .t{font-family:var(--display);font-weight:700;font-size:clamp(24px,3vw,38px);line-height:1.15;max-width:22ch}
+.recap{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.recap li{display:grid;grid-template-columns:34px 1fr auto;gap:14px;align-items:center;background:var(--card);border-radius:10px;padding:10px 16px;box-shadow:0 0 0 2px var(--grid);font-variant-numeric:tabular-nums}
+.recap .k{font-family:var(--display);font-weight:800;font-size:20px;color:var(--ink-2)}
+.recap .v{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+.recap .v svg{width:22px;height:22px}
+.recap .ok{color:var(--up)} .recap .no{color:var(--down)}
+.row-actions{display:flex;gap:14px;flex-wrap:wrap}
+
+@media (max-width:820px){
+  .cards{grid-template-columns:1fr}
+  .mid{max-width:none}
+  .result{grid-template-columns:1fr}
+  .how,.modes{grid-template-columns:1fr}
+  .recap li{grid-template-columns:28px 1fr}
+  .recap .v{grid-column:2}
+  .progress{order:3;flex-basis:100%}
+  .big{font-size:clamp(56px,20vw,110px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .dot{transition:none}.big.pop{animation:none}.btn,.mode{transition:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">Mayor o menor<small>Natalidad en Argentina, 2000–2024</small></div>
+    <div class="progress" id="progress" aria-label="Progreso del juego"></div>
+    <div class="score" id="score" aria-live="polite"></div>
+  </header>
+  <main id="stage"></main>
+</div>
+
+<script>
+const DATA = {"years": [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024], "s": {"argentina": [19.0, 18.2, 18.3, 18.4, 19.3, 18.5, 17.9, 17.8, 18.8, 18.6, 18.7, 18.5, 17.9, 17.9, 18.2, 17.9, 16.7, 16.0, 15.4, 13.9, 11.8, 11.6, 10.7, 9.9, 8.9], "ciudad_autonoma_de_buenos_aires": [14.3, 13.9, 13.6, 14.2, 14.9, 14.5, 14.6, 14.1, 15.1, 14.6, 14.9, 14.8, 14.2, 14.3, 14.3, 13.7, 13.1, 11.7, 11.6, 11.1, 9.1, 8.5, 8.0, 7.8, 6.9], "buenos_aires": [17.5, 16.9, 17.0, 17.3, 18.5, 17.9, 17.7, 17.7, 18.6, 18.4, 18.9, 18.8, 18.1, 17.8, 17.9, 17.3, 16.2, 15.4, 14.6, 13.1, 10.9, 10.7, 9.7, 9.0, 8.4], "catamarca": [25.8, 24.9, 24.4, 22.5, 20.6, 19.7, 18.3, 18.3, 18.6, 17.4, 16.9, 16.0, 15.0, 16.9, 17.4, 17.2, 16.7, 15.8, 16.4, 13.9, 11.9, 11.4, 11.3, 10.0, 8.8], "cordoba": [17.2, 15.9, 16.6, 17.5, 17.8, 17.1, 16.5, 16.3, 17.4, 17.4, 17.2, 16.9, 16.5, 16.0, 16.8, 16.4, 15.7, 15.0, 14.5, 13.7, 11.8, 11.6, 10.8, 9.8, 8.6], "corrientes": [22.7, 21.9, 23.3, 22.2, 22.7, 20.2, 18.7, 18.9, 19.7, 19.9, 19.8, 19.9, 18.6, 19.0, 19.8, 19.3, 18.5, 18.3, 18.0, 16.3, 14.8, 13.9, 12.6, 12.4, 10.5], "chaco": [25.8, 22.2, 24.9, 20.9, 25.1, 22.6, 19.6, 18.4, 20.8, 20.4, 21.2, 22.6, 20.2, 19.9, 20.2, 22.7, 19.1, 19.8, 21.0, 18.6, 15.3, 15.4, 14.7, 13.5, 11.9], "chubut": [19.4, 18.4, 17.1, 18.7, 19.3, 19.2, 20.0, 20.2, 21.4, 21.3, 21.2, 20.7, 20.2, 18.5, 17.8, 17.4, 16.6, 15.3, 14.3, 12.9, 11.3, 10.2, 9.6, 8.4, 8.4], "entre_rios": [21.3, 20.5, 19.5, 19.8, 19.5, 19.0, 17.2, 16.9, 17.2, 17.5, 17.4, 17.2, 16.7, 17.3, 17.8, 17.8, 16.6, 16.3, 15.6, 14.0, 12.3, 11.7, 10.7, 9.9, 8.6], "formosa": [25.7, 22.4, 25.1, 25.0, 26.5, 23.5, 21.4, 21.1, 22.6, 21.9, 21.1, 21.6, 21.0, 21.0, 21.8, 21.3, 19.4, 19.6, 19.8, 17.1, 15.2, 14.5, 13.8, 13.3, 10.7], "jujuy": [22.6, 23.1, 22.1, 20.3, 21.3, 19.9, 18.4, 18.6, 19.1, 19.2, 19.2, 19.6, 18.0, 18.5, 19.5, 18.2, 16.8, 15.8, 15.7, 13.6, 11.9, 10.8, 9.9, 9.3, 8.0], "la_pampa": [18.1, 17.2, 16.7, 18.3, 17.4, 16.9, 16.5, 16.2, 16.5, 16.3, 16.2, 15.6, 15.4, 16.8, 16.5, 15.1, 15.1, 14.3, 13.5, 12.1, 10.4, 9.9, 9.6, 8.8, 8.1], "la_rioja": [22.6, 20.5, 21.4, 21.2, 21.1, 20.8, 19.0, 18.4, 19.0, 17.9, 17.2, 17.4, 17.0, 17.5, 17.3, 17.1, 16.6, 15.6, 14.8, 13.7, 11.6, 11.6, 10.9, 10.2, 8.7], "mendoza": [19.2, 19.1, 16.9, 17.5, 18.4, 18.8, 19.0, 19.3, 20.2, 19.7, 19.3, 19.2, 18.4, 18.7, 19.4, 18.8, 17.5, 16.3, 15.4, 13.9, 11.8, 11.4, 10.5, 9.8, 9.1], "misiones": [25.8, 24.2, 22.9, 24.1, 26.4, 23.0, 19.9, 20.4, 23.1, 23.7, 22.2, 19.3, 22.3, 22.0, 23.4, 22.8, 21.0, 21.1, 20.2, 18.4, 16.8, 16.1, 15.2, 14.5, 12.3], "neuquen": [17.9, 16.8, 16.1, 19.4, 19.8, 20.0, 20.5, 20.5, 21.0, 20.9, 21.6, 19.6, 19.1, 18.7, 19.5, 19.1, 17.9, 16.3, 15.6, 14.4, 12.3, 11.6, 11.0, 10.0, 9.7], "rio_negro": [18.9, 17.8, 17.3, 18.6, 18.3, 18.7, 18.6, 18.9, 19.9, 19.6, 20.0, 19.8, 19.4, 17.9, 17.9, 18.2, 16.8, 16.0, 14.6, 13.3, 11.6, 10.6, 10.5, 9.5, 8.6], "salta": [24.0, 24.2, 24.7, 22.0, 23.9, 22.5, 21.0, 20.6, 21.4, 21.0, 21.9, 21.7, 20.2, 21.1, 21.6, 21.3, 19.4, 19.7, 18.2, 16.3, 12.7, 14.1, 12.8, 11.5, 9.7], "san_juan": [22.7, 23.7, 22.3, 22.2, 22.5, 21.4, 20.7, 20.8, 20.7, 20.6, 19.8, 19.9, 19.6, 20.6, 21.3, 20.5, 18.8, 18.1, 17.7, 16.2, 14.0, 14.1, 13.1, 12.2, 10.3], "san_luis": [22.3, 22.3, 22.0, 21.7, 21.9, 19.9, 20.2, 19.3, 19.3, 18.2, 17.4, 16.7, 16.0, 16.7, 16.9, 17.0, 15.5, 14.8, 14.2, 13.2, 11.8, 11.7, 10.7, 9.4, 8.3], "santa_cruz": [19.6, 19.8, 19.2, 21.9, 22.4, 22.9, 23.5, 23.8, 25.0, 25.2, 26.0, 25.0, 24.0, 19.7, 19.8, 19.8, 18.6, 17.0, 14.7, 13.3, 11.3, 9.4, 9.5, 8.0, 8.1], "santa_fe": [16.9, 16.2, 16.7, 17.3, 17.6, 16.3, 15.8, 15.7, 16.9, 16.5, 16.2, 16.4, 16.3, 16.9, 17.2, 16.9, 16.3, 15.4, 14.8, 13.4, 11.2, 12.2, 11.5, 10.4, 9.2], "santiago_del_estero": [21.6, 21.1, 22.1, 17.8, 19.7, 21.0, 20.0, 19.4, 20.5, 21.9, 19.9, 20.2, 17.9, 18.8, 19.8, 20.5, 18.7, 18.8, 18.9, 17.5, 14.0, 13.8, 11.7, 11.8, 10.8], "tucuman": [22.6, 21.1, 22.6, 21.8, 21.0, 19.9, 18.5, 19.7, 19.9, 19.1, 20.1, 19.5, 18.7, 18.9, 19.3, 19.0, 17.5, 16.7, 16.9, 15.0, 12.8, 12.8, 11.9, 10.6, 9.4], "tierra_del_fuego": [19.9, 17.9, 17.2, 20.8, 19.5, 20.7, 20.1, 20.8, 20.8, 20.2, 18.8, 18.6, 19.2, 19.8, 20.5, 19.9, 18.1, 16.9, 16.3, 14.2, 10.9, 9.9, 8.5, 7.7, 6.9]}, "names": {"argentina": "Argentina", "ciudad_autonoma_de_buenos_aires": "Ciudad de Buenos Aires", "buenos_aires": "Buenos Aires", "catamarca": "Catamarca", "cordoba": "Córdoba", "corrientes": "Corrientes", "chaco": "Chaco", "chubut": "Chubut", "entre_rios": "Entre Ríos", "formosa": "Formosa", "jujuy": "Jujuy", "la_pampa": "La Pampa", "la_rioja": "La Rioja", "mendoza": "Mendoza", "misiones": "Misiones", "neuquen": "Neuquén", "rio_negro": "Río Negro", "salta": "Salta", "san_juan": "San Juan", "san_luis": "San Luis", "santa_cruz": "Santa Cruz", "santa_fe": "Santa Fe", "santiago_del_estero": "Santiago del Estero", "tucuman": "Tucumán", "tierra_del_fuego": "Tierra del Fuego"}};
+const S = DATA.s, Y = DATA.years, NAMES = DATA.names;
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+const sd = a => { const m = mean(a); return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)); };
+const r1 = x => Math.round(x * 10) / 10;
+const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+const iy = y => Y.indexOf(y);
+const ARG = S.argentina, CABA = S.ciudad_autonoma_de_buenos_aires, MIS = S.misiones;
+const brecha = y => r1(MIS[iy(y)] - CABA[iy(y)]);
+
+/* Guion: las 7 rondas del informe. Todos los valores salen del archivo. */
+const GUION = [
+  { ref:{v:mean(S.formosa),d:2,t:'Formosa',s:'tasa media, 2000–2024'}, tgt:{v:mean(S.chaco),d:2,t:'Chaco',s:'tasa media, 2000–2024'},
+    note:'Son dos de las tres jurisdicciones con mayor tasa media. Con valores tan cercanos no alcanza la intuición: hay que mirar el número exacto.' },
+  { ref:{v:ARG[iy(2000)],d:1,t:'Argentina',s:'en 2000'}, tgt:{v:MIS[iy(2024)],d:1,t:'Misiones',s:'en 2024'},
+    note:'Misiones tiene la mayor tasa media de todas las jurisdicciones, y aun así en 2024 quedó por debajo del total del país en 2000.' },
+  { ref:{v:CABA[iy(2000)],d:1,t:'Ciudad de Buenos Aires',s:'en 2000'}, tgt:{v:ARG[iy(2024)],d:1,t:'Argentina',s:'en 2024'},
+    note:'CABA es la jurisdicción con menor tasa media. La tasa de todo el país en 2024 quedó por debajo de la que CABA tenía en 2000.' },
+  { ref:{v:median(ARG),d:1,t:'Argentina',s:'mediana, 2000–2024'}, tgt:{v:mean(ARG),d:2,t:'Argentina',s:'media, 2000–2024'},
+    note:'La media queda por debajo de la mediana porque los años recientes, con tasas muy bajas, tiran del promedio hacia abajo. Es una asimetría hacia los valores bajos.' },
+  { ref:{v:sd(S.santa_fe),d:2,t:'Santa Fe',s:'desviación típica'}, tgt:{v:sd(S.santa_cruz),d:2,t:'Santa Cruz',s:'desviación típica'},
+    note:'La desviación típica mide cuánto se alejan los años de su media. Santa Cruz es la jurisdicción más dispersa y Santa Fe la más estable.' },
+  { ref:{v:mean(ARG.slice(0,10)),d:2,t:'Argentina',s:'tasa media, 2000–2009'}, tgt:{v:mean(ARG.slice(10,20)),d:2,t:'Argentina',s:'tasa media, 2010–2019'},
+    note:'Cada período tiene una media más baja que el anterior. La de 2020–2024 es todavía menor: 10,58.' },
+  { ref:{v:brecha(2000),d:1,t:'Misiones menos CABA',s:'brecha en 2000'}, tgt:{v:brecha(2024),d:1,t:'Misiones menos CABA',s:'brecha en 2024'},
+    note:'La distancia entre la jurisdicción de mayor y la de menor tasa media se achicó a menos de la mitad. Ambas bajaron, pero Misiones bajó mucho más.' }
+];
+
+/* Rondas al azar: dos celdas distintas de la tabla (jurisdicción, año). */
+const KEYS = Object.keys(S);
+function randomRound(){
+  for(;;){
+    const k1 = KEYS[Math.random()*KEYS.length|0], k2 = KEYS[Math.random()*KEYS.length|0];
+    const y1 = Y[Math.random()*Y.length|0], y2 = Y[Math.random()*Y.length|0];
+    const a = S[k1][iy(y1)], b = S[k2][iy(y2)];
+    if (Math.abs(a-b) < 0.2) continue;
+    let note;
+    if (k1===k2) note = NAMES[k1]+': entre '+y1+' y '+y2+' la tasa pasó de '+fmt(a,1)+' a '+fmt(b,1)+'.';
+    else if (y1===y2) note = 'Mismo año ('+y1+'), distinta jurisdicción: '+NAMES[k1]+' y '+NAMES[k2]+'.';
+    else note = 'Jurisdicción y año distintos: la comparación mezcla territorio y época. Casi todas las series bajan con el tiempo.';
+    return { ref:{v:a,d:1,t:NAMES[k1],s:'en '+y1}, tgt:{v:b,d:1,t:NAMES[k2],s:'en '+y2}, note };
+  }
+}
+
+const ICON = {
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M5 13l7 7 7-7"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V4M5 11l7-7 7 7"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>',
+  no:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>'
+};
+
+const state = { view:'start', mode:null, rounds:[], i:0, answers:[], revealed:false };
+
+function scaleFor(a, b){
+  const raw = Math.max(a, b) * 1.12;
+  const step = raw <= 9 ? 1 : raw <= 20 ? 2 : 5;
+  const max = Math.ceil(raw / step) * step;
+  return { max, step };
+}
+const pos = (v, max) => 3 + 94 * v / max;
+
+function scaleHTML(round, revealed){
+  const { ref, tgt } = round, { max, step } = scaleFor(ref.v, tgt.v);
+  const pr = pos(ref.v, max), pt = pos(tgt.v, max), up = tgt.v > ref.v;
+  let ticks = '';
+  for (let t = 0; t <= max + 1e-9; t += step) ticks += '<span class="tick" style="left:'+pos(t,max)+'%">'+t+'</span>';
+  return '<div class="scale" aria-hidden="true">'
+    + '<div class="track">'
+    + '<div class="zone lo" style="width:'+pr+'%">'+(pr > 14 ? 'menor' : '')+'</div>'
+    + '<div class="zone hi" style="width:'+(100-pr)+'%">'+(100-pr > 14 ? 'mayor' : '')+'</div></div>'
+    + '<div class="flag" style="left:clamp(52px,'+pr+'%,calc(100% - 52px))">'+fmt(ref.v,ref.d)+'</div>'
+    + '<div class="refline" style="left:'+pr+'%"></div>'
+    + ticks
+    + (revealed ? '<div class="dot '+(up?'up':'down')+'" id="dot" data-from="'+pr+'" data-to="'+pt+'" style="left:'+pr+'%">'+fmt(tgt.v,tgt.d)+'</div>' : '')
+    + '</div>';
+}
+
+function startHTML(){
+  return '<section class="hero">'
+    + '<h1>Mayor o menor</h1>'
+    + '<p class="lede">Mostramos un dato de la natalidad argentina. El público adivina si el siguiente es mayor o menor.</p>'
+    + '<div class="demo" aria-hidden="true"><div class="scale">'
+    + '<div class="track"><div class="zone lo" style="width:42%">menor</div><div class="zone hi" style="width:58%">mayor</div></div>'
+    + '<div class="flag" style="left:42%">dato dado</div><div class="refline" style="left:42%"></div>'
+    + '<div class="dot idle" style="left:74%">?</div></div></div>'
+    + '</section>'
+    + '<ol class="how"><li>Mostrá el dato de referencia.</li><li>El público vota mayor o menor.</li><li>Tocá el voto de la mayoría y se revela el dato.</li></ol>'
+    + '<div class="modes">'
+    + '<button class="mode" data-action="start" data-mode="guion"><b>Guion de la exposición</b><span>7 rondas elegidas para explicar media, mediana, dispersión y brechas.</span></button>'
+    + '<button class="mode" data-action="start" data-mode="azar"><b>Rondas al azar</b><span>10 rondas con datos tomados al azar del archivo.</span></button>'
+    + '</div>'
+    + '<p class="src">Tasa de natalidad por 1.000 habitantes. Fuente: DEIS, archivo tasa-natalidad-deis-2000-2024.csv.</p>';
+}
+
+function roundHTML(){
+  const r = state.rounds[state.i], a = state.answers[state.i], rev = state.revealed;
+  const up = r.tgt.v > r.ref.v;
+  let h = '<div class="cards">'
+    + '<div class="card"><p class="role">Dato de referencia</p><p class="big">'+fmt(r.ref.v,r.ref.d)+'</p><p class="desc">'+r.ref.t+'</p><p class="sub">'+r.ref.s+'</p></div>'
+    + '<div class="mid">¿mayor o menor?</div>'
+    + '<div class="card '+(rev ? (up?'up':'down') : 'hidden')+'"><p class="role">'+(rev?'Dato revelado':'Dato a adivinar')+'</p><p class="big '+(rev?'pop':'')+'">'+(rev ? fmt(r.tgt.v,r.tgt.d) : '?')+'</p><p class="desc">'+r.tgt.t+'</p><p class="sub">'+r.tgt.s+'</p></div>'
+    + '</div>'
+    + scaleHTML(r, rev);
+  if (!rev){
+    h += '<p class="vote-cap">Voto del público</p>'
+      + '<div class="votes">'
+      + '<button class="btn menor" data-action="vote" data-vote="menor" aria-label="Menor (tecla N o flecha abajo)">'+ICON.down+'Menor</button>'
+      + '<button class="btn mayor" data-action="vote" data-vote="mayor" aria-label="Mayor (tecla M o flecha arriba)">'+ICON.up+'Mayor</button>'
+      + '</div>';
+  } else {
+    const diff = Math.abs(r.tgt.v - r.ref.v);
+    const last = state.i === state.rounds.length - 1;
+    h += '<div class="result '+(a.ok?'ok':'no')+'" role="status">'
+      + '<div><p class="verdict">'+(a.ok?ICON.ok:ICON.no)+(a.ok?'El público acertó':'El público falló')+'</p>'
+      + '<p class="cmp">'+fmt(r.tgt.v,r.tgt.d)+' es '+(up?'mayor':'menor')+' que '+fmt(r.ref.v,r.ref.d)+'. Diferencia de '+fmt(diff,r.ref.d===2||r.tgt.d===2?2:1)+' puntos.</p></div>'
+      + '<p class="note">'+r.note+'</p>'
+      + '<button class="btn dark" data-action="next" id="nextBtn">'+(last?'Ver resultado':'Siguiente ronda')+'</button>'
+      + '</div>';
+  }
+  return h;
+}
+
+function endHTML(){
+  const n = state.rounds.length, hits = state.answers.filter(x => x && x.ok).length, p = hits / n;
+  const msg = p >= .8 ? 'El público leyó muy bien los datos.' : p >= .5 ? 'El público acertó más de la mitad.' : 'Los datos sorprendieron al público.';
+  let rows = '';
+  state.rounds.forEach((r, k) => {
+    const a = state.answers[k], up = r.tgt.v > r.ref.v;
+    rows += '<li><span class="k">'+(k+1)+'</span><span>'+r.ref.t+' ('+r.ref.s+'): <b>'+fmt(r.ref.v,r.ref.d)+'</b>. '+r.tgt.t+' ('+r.tgt.s+'): <b>'+fmt(r.tgt.v,r.tgt.d)+'</b>, '+(up?'mayor':'menor')+'.</span>'
+      + '<span class="v '+(a.ok?'ok':'no')+'">'+(a.ok?ICON.ok:ICON.no)+'Dijo '+a.vote+(a.ok?': acertó':': falló')+'</span></li>';
+  });
+  return '<div class="final"><span class="n">'+hits+' de '+n+'</span><span class="t">'+msg+'</span></div>'
+    + '<ul class="recap">'+rows+'</ul>'
+    + '<div class="row-actions"><button class="btn dark" data-action="again">Jugar de nuevo</button><button class="btn light" data-action="home">Cambiar de modo</button></div>';
+}
+
+function header(){
+  const n = state.rounds.length, seg = [];
+  for (let k = 0; k < n; k++){
+    const a = state.answers[k];
+    seg.push('<span class="seg '+(a ? (a.ok?'ok':'no') : (state.view==='round' && k===state.i ? 'cur' : ''))+'"></span>');
+  }
+  document.getElementById('progress').innerHTML = seg.join('');
+  const done = state.answers.filter(Boolean), hits = done.filter(x => x.ok).length;
+  document.getElementById('score').innerHTML = done.length ? 'Aciertos <b>'+hits+'</b> de '+done.length : '';
+}
+
+function render(){
+  const st = document.getElementById('stage');
+  st.innerHTML = state.view==='start' ? startHTML() : state.view==='round' ? roundHTML() : endHTML();
+  header();
+  const dot = document.getElementById('dot');
+  if (dot){
+    dot.style.opacity = 1;
+    void dot.offsetWidth;
+    dot.style.left = dot.dataset.to + '%';
+  }
+  if (state.view==='round' && state.revealed){ const b = document.getElementById('nextBtn'); if (b) b.focus({preventScroll:true}); }
+  window.scrollTo(0, 0);
+}
+
+function startGame(mode){
+  state.mode = mode;
+  state.rounds = mode==='guion' ? GUION.slice() : Array.from({length:10}, randomRound);
+  state.answers = []; state.i = 0; state.revealed = false; state.view = 'round';
+  render();
+}
+function vote(v){
+  if (state.view!=='round' || state.revealed) return;
+  const r = state.rounds[state.i], truth = r.tgt.v > r.ref.v ? 'mayor' : 'menor';
+  state.answers[state.i] = { vote:v, ok: v===truth };
+  state.revealed = true;
+  render();
+}
+function next(){
+  if (state.view!=='round' || !state.revealed) return;
+  if (state.i === state.rounds.length - 1){ state.view = 'end'; }
+  else { state.i++; state.revealed = false; }
+  render();
+}
+
+document.getElementById('stage').addEventListener('click', e => {
+  const t = e.target.closest('[data-action]'); if (!t) return;
+  const a = t.dataset.action;
+  if (a==='start') startGame(t.dataset.mode);
+  else if (a==='vote') vote(t.dataset.vote);
+  else if (a==='next') next();
+  else if (a==='again') startGame(state.mode);
+  else if (a==='home'){ state.view='start'; state.rounds=[]; state.answers=[]; render(); }
+});
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (state.view==='round' && !state.revealed){
+    if (k==='arrowup' || k==='m') vote('mayor');
+    else if (k==='arrowdown' || k==='n') vote('menor');
+  } else if (state.view==='round' && state.revealed){
+    if (e.target.closest && e.target.closest('button') && (k==='enter' || k===' ')) return;
+    if (k==='enter' || k===' ' || k==='arrowright'){ e.preventDefault(); next(); }
+  }
+});
+render();
+</script>
+</body>
+</html>
